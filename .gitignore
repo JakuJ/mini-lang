@@ -4,3 +4,8 @@ obj/
 riderModule.iml
 /_ReSharper.Caches/
 .idea/
+*.exe
+*.lst
+*.il
+Scanner.cs
+Parser.cs

@@ -1,0 +1,7 @@
+program {
+    int x;
+    
+    double y;
+    
+    bool p;
+}
