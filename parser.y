@@ -14,30 +14,47 @@
 
 %union
 {
-public string value;
+public string str;
+public INode node;
+public VarType type;
 }
 
-%token Program If Else While Read Write Return Type True False
+%token Program If Else While Read Write Return Type
 %token Assign Or And BitOr BitAnd Eq Neq Gt Gte Lt Lte Plus Minus Mult Div Not BitNot
 %token LParen RParen LBrace RBrace Semicolon
-%token Ident LitInt LitDouble
+%token Ident LitInt LitDouble LitBool
 
-%token <value> Type Ident LitInt LitDouble
+%token <type> Type
+%token <str> Ident
+%token <node> LitInt LitDouble LitBool
+
+%type <node> rvalue literal
 
 %%
 
 start: program | ;
 
-program: Program { builder.addProgram(); } LBrace lines RBrace;
+program: Program { builder.AddProgram(); } LBrace lines RBrace;
 
 lines: lines line | ;
 
-line: declaration ;
+line: expression Semicolon;
 
-declaration: Type Ident Semicolon { builder.addVariable($1, $2); } ;
+expression: declaration | assignment ;
+
+declaration: Type Ident { builder.AddDeclaration($2, $1); } ;
+
+assignment: Ident Assign rvalue { builder.AddAssignment($1, $3); } ;
+
+rvalue: Ident | literal;
+
+literal: LitInt | LitDouble | LitBool ;
 
 %%
 
 int lineNumber = 1;
 
-public Parser(Scanner scanner) : base(scanner) { }
+public Parser(Scanner scanner) : base(scanner)
+{ 
+    builder.Scanner = scanner;    
+}

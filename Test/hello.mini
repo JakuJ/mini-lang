@@ -1,7 +1,13 @@
 program {
     int x;
+    x = 1;
+    x = 2;
     
     double y;
+    y = 1.0;
+    y = 2.0;
     
     bool p;
+    p = true;
+    p = false;
 }

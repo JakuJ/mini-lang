@@ -7,24 +7,24 @@ namespace mini_lang
 {
     #region AST
 
+    public enum VarType
+    {
+        Integer,
+        Double,
+        Bool
+    }
+
     public interface INode
     {
         void Accept(INodeVisitor visitor);
     }
 
-    public class Variable : INode
+    public class Declaration : INode
     {
-        public enum VType
-        {
-            Integer,
-            Double,
-            Bool
-        }
-
         public readonly string Name;
-        public readonly VType Type;
+        public readonly VarType Type;
 
-        public Variable(VType vType, string name)
+        public Declaration(VarType vType, string name)
         {
             Type = vType;
             Name = name;
@@ -32,7 +32,41 @@ namespace mini_lang
 
         public void Accept(INodeVisitor visitor)
         {
-            visitor.VisitVariable(this);
+            visitor.VisitDeclaration(this);
+        }
+    }
+
+    public class Constant : INode
+    {
+        public readonly string Value;
+        public readonly VarType Type;
+
+        public Constant(string value, VarType type)
+        {
+            Value = value;
+            Type = type;
+        }
+
+        public void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitConstant(this);
+        }
+    }
+
+    public class Assignment : INode
+    {
+        public readonly string Lhs;
+        public readonly INode Rhs;
+
+        public Assignment(string lhs, INode rhs)
+        {
+            Lhs = lhs;
+            Rhs = rhs;
+        }
+
+        public void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitAssignment(this);
         }
     }
 
@@ -58,7 +92,9 @@ namespace mini_lang
     public interface INodeVisitor
     {
         void VisitProgram(Program program);
-        void VisitVariable(Variable variable);
+        void VisitDeclaration(Declaration declaration);
+        void VisitAssignment(Assignment assignment);
+        void VisitConstant(Constant constant);
     }
 
     #endregion
@@ -68,31 +104,45 @@ namespace mini_lang
     public class AstBuilder
     {
         public Program Program { get; private set; }
+        private readonly Dictionary<string, VarType> _declared;
 
-        public void addProgram()
+        public Scanner Scanner { private get; set; }
+
+        public AstBuilder()
+        {
+            _declared = new Dictionary<string, VarType>();
+        }
+
+        public void AddProgram()
         {
             Program = new Program();
         }
 
-        public void addVariable(string value, string name)
+        private void Append(INode node)
         {
-            Variable.VType vType;
-            switch (value)
+            Program.Instructions.Add(node);
+        }
+
+        public void AddDeclaration(string name, VarType type)
+        {
+            if (_declared.ContainsKey(name))
             {
-                case "int":
-                    vType = Variable.VType.Integer;
-                    break;
-                case "double":
-                    vType = Variable.VType.Double;
-                    break;
-                case "bool":
-                    vType = Variable.VType.Bool;
-                    break;
-                default:
-                    throw new ArgumentException($"Invalid variable type {value}");
+                Scanner?.yyerror($"Redeclaration of variable {name}");
             }
 
-            Program.Instructions.Add(new Variable(vType, name));
+            _declared[name] = type;
+            Append(new Declaration(type, name));
+        }
+
+        public void AddAssignment(string name, INode value)
+        {
+            if (!_declared.ContainsKey(name))
+            {
+                Scanner?.yyerror($"Undeclared variable {name}");
+                Environment.Exit(1);
+            }
+
+            Append(new Assignment(name, value));
         }
     }
 
@@ -118,26 +168,48 @@ namespace mini_lang
             _sw.Flush();
         }
 
-        public void VisitVariable(Variable variable)
+        public void VisitDeclaration(Declaration declaration)
         {
-            switch (variable.Type)
+            switch (declaration.Type)
             {
-                case Variable.VType.Bool:
+                case VarType.Bool:
                 {
-                    EmitLine($".locals init ( bool {variable.Name} )");
+                    EmitLine($".locals init ( bool {declaration.Name} )");
                     break;
                 }
-                case Variable.VType.Integer:
+                case VarType.Integer:
                 {
-                    EmitLine($".locals init ( int32 {variable.Name} )");
+                    EmitLine($".locals init ( int32 {declaration.Name} )");
                     break;
                 }
-                case Variable.VType.Double:
+                case VarType.Double:
                 {
-                    EmitLine($".locals init ( float64 {variable.Name} )");
+                    EmitLine($".locals init ( float64 {declaration.Name} )");
                     break;
                 }
             }
+        }
+
+        public void VisitConstant(Constant constant)
+        {
+            switch (constant.Type)
+            {
+                case VarType.Integer:
+                    EmitLine($"ldc.i4 {constant.Value}");
+                    break;
+                case VarType.Double:
+                    EmitLine($"ldc.r8 {constant.Value}");
+                    break;
+                case VarType.Bool:
+                    EmitLine(constant.Value == "true" ? "ldc.i4.1" : "ldc.i4.0");
+                    break;
+            }
+        }
+
+        public void VisitAssignment(Assignment assignment)
+        {
+            assignment.Rhs.Accept(this);
+            EmitLine($"stloc {assignment.Lhs}");
         }
 
         private void EmitLine(string code = null)
@@ -150,7 +222,7 @@ namespace mini_lang
             _sw.WriteLine(code, args);
         }
 
-        public void EmitPrologue()
+        private void EmitPrologue()
         {
             EmitLine(".assembly extern mscorlib { }");
             EmitLine(".assembly minilang { }");
@@ -161,11 +233,10 @@ namespace mini_lang
             EmitLine("{");
             EmitLine();
             EmitLine("// prolog");
-            // emit variables here ?
             EmitLine();
         }
 
-        public void EmitEpilogue()
+        private void EmitEpilogue()
         {
             EmitLine("leave EndMain");
             EmitLine("}");
@@ -193,9 +264,21 @@ namespace mini_lang
             Console.WriteLine("}");
         }
 
-        public void VisitVariable(Variable variable)
+        public void VisitDeclaration(Declaration declaration)
         {
-            Console.WriteLine($"{variable.Type} {variable.Name};");
+            Console.WriteLine($"{declaration.Type} {declaration.Name};");
+        }
+
+        public void VisitConstant(Constant constant)
+        {
+            Console.Write(constant.Value);
+        }
+
+        public void VisitAssignment(Assignment assignment)
+        {
+            Console.Write($"{assignment.Lhs} = ");
+            assignment.Rhs.Accept(this);
+            Console.WriteLine(";");
         }
     }
 
