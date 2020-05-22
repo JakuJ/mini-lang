@@ -292,7 +292,13 @@ namespace mini_lang
     {
         private readonly StreamWriter _sw;
 
-        public CilBuilder(string file) => _sw = new StreamWriter(file + ".il");
+        public string OutputFile { get; }
+
+        public CilBuilder(string file)
+        {
+            OutputFile = file + ".il";
+            _sw = new StreamWriter(OutputFile);
+        }
 
         public void Dispose() => _sw.Dispose();
 
