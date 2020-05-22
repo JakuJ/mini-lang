@@ -9,3 +9,6 @@ riderModule.iml
 *.il
 Scanner.cs
 Parser.cs
+*.DotSettings.user
+dis.sh
+/Test/

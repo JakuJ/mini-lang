@@ -30,6 +30,7 @@ String      "\""[^\n\"]*"\""
 ";"             { return (int)Tokens.Semicolon; }
 "="             { return (int)Tokens.Assign; }
 "write"         { return (int)Tokens.Write; }
+"read"          { return (int)Tokens.Read; }
 "return"        { return (int)Tokens.Return; }
 {Integer}       { yylval.node = new Constant(yytext, VarType.Integer); return (int)Tokens.LitInt; }
 {Real}          { yylval.node = new Constant(yytext, VarType.Double); return (int)Tokens.LitDouble; }

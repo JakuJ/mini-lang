@@ -1,28 +1,9 @@
-program 
-{
-    write "Hello World!\n";
-    
-    // Wypisywanie intów ;234@djknk "" asdf // // $$
-    int x;
-    x = 1;
-    write x;
-    write "\n";
-    
-    double y;
-    y = 1.5;
-    write y;
-    write "\n";
-    y = 3.14;
-    write y;
-    write "\n";
-    
-    bool p;
-    p = true;
-    write p;
-    write "\n";
-    p = false;
-    write p;
-    write "\n";
-    
-    return;
+program {
+    int i; double d; bool b;
+    i = 5;
+    d = 123.456;
+    b = true;
+    write i; write "\n";
+    write d; write "\n";
+    write b; write "\n";
 }

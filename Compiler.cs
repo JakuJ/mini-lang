@@ -267,31 +267,34 @@ namespace mini_lang
 
         public void VisitWrite(Write write)
         {
-            EmitLine("ldstr \"{0}\""); // format string
-            write.Rhs.Accept(this);
-            MakeBoxed(write.Rhs);
-            EmitLine("call void [mscorlib]System.Console::Write(string, object)");
+            switch (write.Rhs.Type)
+            {
+                case VarType.Integer:
+                    write.Rhs.Accept(this);
+                    EmitLine("call void [mscorlib]System.Console::Write(int32)");
+                    break;
+                case VarType.Double:
+                    EmitLine("call class [mscorlib]System.Globalization.CultureInfo class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
+                    EmitLine("ldstr \"{0:0.000000}\"");
+                    write.Rhs.Accept(this);
+                    EmitLine("box [mscorlib]System.Double");
+                    EmitLine("call string string::Format(class [mscorlib]System.IFormatProvider, string, object)");
+                    EmitLine("call void [mscorlib]System.Console::Write(string)");
+                    break;
+                case VarType.Bool:
+                    write.Rhs.Accept(this);
+                    EmitLine("call void [mscorlib]System.Console::Write(bool)");
+                    break;
+                case VarType.String:
+                    write.Rhs.Accept(this);
+                    EmitLine("call void [mscorlib]System.Console::Write(string)");
+                    break;
+            }
         }
 
         public void VisitReturn(Return ret)
         {
             EmitLine("leave EndMain");
-        }
-
-        private void MakeBoxed(IEvaluable node)
-        {
-            switch (node.Type)
-            {
-                case VarType.Integer:
-                    EmitLine("box [mscorlib]System.Int32");
-                    break;
-                case VarType.Double:
-                    EmitLine("box [mscorlib]System.Double");
-                    break;
-                case VarType.Bool:
-                    EmitLine("box [mscorlib]System.Boolean");
-                    break;
-            }
         }
 
         private void EmitLine(string code = null) => _sw.WriteLine(code);
