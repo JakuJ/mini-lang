@@ -7,13 +7,6 @@ namespace mini_lang
 {
     #region Common
 
-    public class ParsingException : Exception
-    {
-        public ParsingException(string message) : base(message)
-        {
-        }
-    }
-
     public enum VarType
     {
         Integer,
@@ -46,7 +39,7 @@ namespace mini_lang
             {
                 if (!Declaration.Declared.ContainsKey(Name))
                 {
-                    Compiler.LogError($"Variable {Name} has not been declared");
+                    Compiler.Error($"Variable {Name} has not been declared", true);
                 }
 
                 return Declaration.Declared[Name];
@@ -58,7 +51,7 @@ namespace mini_lang
         {
             if (!Declaration.Declared.ContainsKey(name))
             {
-                Compiler.LogError($"Variable {name} has not been declared");
+                Compiler.Error($"Variable {name} has not been declared", true);
             }
 
             Name = name;
@@ -81,12 +74,12 @@ namespace mini_lang
         {
             if (vType == VarType.String)
             {
-                Compiler.LogError("Strings are only allowed in write expressions");
+                Compiler.Error("Strings are only allowed in write expressions");
             }
 
             if (Declared.ContainsKey(name))
             {
-                Compiler.LogError($"Redeclaration of variable {name}");
+                Compiler.Error($"Redeclaration of variable {name}");
             }
 
             Type = vType;
@@ -138,7 +131,7 @@ namespace mini_lang
         public abstract void Accept(INodeVisitor visitor);
 
         protected static void InvalidType(string op, VarType type) =>
-            Compiler.LogError($"Invalid type for operand {op}: {type}");
+            Compiler.Error($"Invalid type for operand {op}: {type}");
     }
 
     public class MathOp : BinOp
@@ -186,7 +179,7 @@ namespace mini_lang
             }
             else if (Lhs.Type != Rhs.Type)
             {
-                Compiler.LogError($"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
+                Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
             }
         }
 
@@ -366,7 +359,7 @@ namespace mini_lang
                     EmitLine("conv.i4");
                     break;
                 default:
-                    Compiler.LogError($"Conversion to type {targetType} unknown");
+                    Compiler.Error($"Conversion to type {targetType} unknown");
                     break;
             }
         }
@@ -538,24 +531,50 @@ namespace mini_lang
 
     #endregion
 
+    public class CompilerException : Exception
+    {
+        public CompilerException(string message) : base(message)
+        {
+        }
+    }
+
     public static class Compiler
     {
-        public delegate void ErrorLogger(string message);
+        public delegate void ErrorLogger(string message, bool interrupt = false);
 
-        public static ErrorLogger LogError;
+        public static ErrorLogger Error;
 
-        public static Program Compile(string file)
+        public static (Program, int) Compile(string file)
         {
             var source = new FileStream(file, FileMode.Open);
 
             var scanner = new Scanner(source);
             var parser = new Parser(scanner);
 
-            // Hack - make use of the built-in line tracking in the scanner
-            LogError = (string message) => scanner.yyerror(message);
+            var errors = 0;
 
-            parser.Parse();
-            return parser.builder;
+            Error = (string message, bool interrupt) =>
+            {
+                // Hack - make use of the built-in line tracking in the scanner
+                Console.Error.WriteLine($"C | {message} on line {scanner.lineNumber}");
+                errors++;
+                if (interrupt)
+                {
+                    throw new CompilerException("Irrecoverable state");
+                }
+            };
+
+            try
+            {
+                parser.Parse();
+            }
+            catch (CompilerException)
+            {
+            }
+
+            errors += scanner.errors;
+
+            return (parser.builder, errors);
         }
 
         public static int Main(string[] args)
@@ -572,21 +591,21 @@ namespace mini_lang
                 file = Console.ReadLine();
             }
 
-            try
-            {
-                Program program = Compile(file);
-                var printer = new PrettyPrinter();
-                program.Accept(printer);
+            (Program program, int errors) = Compile(file);
 
-                var generator = new CilBuilder(file);
-                program.Accept(generator);
-
-                return 0;
-            }
-            catch (ParsingException e)
+            if (errors > 0)
             {
+                Console.Error.WriteLine($"{errors} errors found");
                 return 1;
             }
+
+            var printer = new PrettyPrinter();
+            program.Accept(printer);
+
+            var generator = new CilBuilder(file);
+            program.Accept(generator);
+
+            return 0;
         }
     }
 }

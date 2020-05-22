@@ -1,1 +1,19 @@
-program {
+program { 
+    write (2 + 2 * 2);
+    write "\n";
+    
+    write (3.14 + 2 * 5);
+    write "\n";
+    
+    write (3 / 2);
+    write "\n";
+    
+    write (3 / 1);
+    write "\n";
+    
+    write (3.0 / 2);
+    write "\n";
+    
+    write (15 + 2 * 4) / (70 - 35.0 / 5);
+    write "\n";
+}

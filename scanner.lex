@@ -4,12 +4,13 @@
 %option codePage:65001 out:Scanner.cs
 
 %{
-    int lineNumber = 1;
+    public int lineNumber = 1;
+    public int errors = 0;
     
     public override void yyerror(string message, params object[] args)
     {
-        Console.Error.WriteLine("Parsing error at line " + lineNumber.ToString() + ": " + message);
-        throw new ParsingException(message);
+        Console.Error.WriteLine("L | " + message + " on line " + lineNumber.ToString());
+        errors++;
     }
 %}
 
@@ -58,9 +59,9 @@ String      "\""[^\n\"]*"\""
 {Bool}          { yylval.node = new Constant(yytext, VarType.Bool); return (int)Tokens.LitBool; }
 {Ident}         { yylval.str = yytext; return (int)Tokens.Ident; }
 {String}        { yylval.str = yytext; return (int)Tokens.String; }
-"\n"            { lineNumber++; }
+"\n"            { lineNumber++; return (int)Tokens.Endl; }
 <<EOF>>         { }
 {Comment}       { }
 " "             { }
 "\t"            { }
-.               { yyerror(yytext); }
+.               { yyerror("Invalid token: " + yytext); return (int)Tokens.error; }
