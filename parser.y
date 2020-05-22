@@ -39,7 +39,8 @@ line: expression Semicolon ;
 
 expression: declaration 
           | assignment
-          | write 
+          | write
+          | read
           | Return { builder.AddReturn(); } ;
 
 declaration: Type Ident { builder.AddDeclaration($2, $1); } ;
@@ -47,6 +48,8 @@ declaration: Type Ident { builder.AddDeclaration($2, $1); } ;
 assignment: Ident Assign rvalue { builder.AddAssignment($1, $3); } ;
 
 write: Write rvalorstring { builder.AddWrite($2); } ;
+
+read: Read Ident { builder.AddRead($2); } ;
 
 rvalorstring: rvalue 
             | String { $$ = new Constant($1, VarType.String); } ;

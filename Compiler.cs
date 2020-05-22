@@ -94,7 +94,7 @@ namespace mini_lang
         }
     }
 
-    public class Constant : INode, IEvaluable
+    public class Constant : IEvaluable
     {
         public readonly string Value;
         public VarType Type { get; }
@@ -115,11 +115,21 @@ namespace mini_lang
     {
         public readonly Identifier Lhs;
         public readonly IEvaluable Rhs;
+        public readonly bool Conversion = false;
 
         public Assignment(string name, IEvaluable rhs)
         {
             Lhs = new Identifier(name);
             Rhs = rhs;
+
+            if (Lhs.Type == VarType.Double && Rhs.Type == VarType.Integer)
+            {
+                Conversion = true;
+            }
+            else if (Lhs.Type != Rhs.Type)
+            {
+                Compiler.LogError($"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
+            }
         }
 
         public void Accept(INodeVisitor visitor)
@@ -140,6 +150,21 @@ namespace mini_lang
         public void Accept(INodeVisitor visitor)
         {
             visitor.VisitWrite(this);
+        }
+    }
+
+    public class Read : INode
+    {
+        public readonly Identifier Target;
+
+        public Read(Identifier target)
+        {
+            Target = target;
+        }
+
+        public void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitRead(this);
         }
     }
 
@@ -178,6 +203,7 @@ namespace mini_lang
         void VisitAssignment(Assignment assignment);
         void VisitConstant(Constant constant);
         void VisitWrite(Write write);
+        void VisitRead(Read read);
         void VisitReturn(Return ret);
     }
 
@@ -185,17 +211,21 @@ namespace mini_lang
 
     public class AstBuilder
     {
-        public Program Program { get; private set; }
+        private Program _program;
 
-        public void AddProgram() => Program = new Program();
+        public static implicit operator Program(AstBuilder builder) => builder._program;
 
-        private void Append(INode node) => Program.Instructions.Add(node);
+        public void AddProgram() => _program = new Program();
+
+        private void Append(INode node) => _program.Instructions.Add(node);
 
         public void AddDeclaration(string name, VarType type) => Append(new Declaration(type, name));
 
         public void AddAssignment(string name, IEvaluable value) => Append(new Assignment(name, value));
 
         public void AddWrite(IEvaluable node) => Append(new Write(node));
+
+        public void AddRead(string name) => Append(new Read(new Identifier(name)));
 
         public void AddReturn() => Append(new Return());
     }
@@ -262,6 +292,21 @@ namespace mini_lang
         public void VisitAssignment(Assignment assignment)
         {
             assignment.Rhs.Accept(this);
+
+            // Add a conversion if need be
+            if (assignment.Conversion)
+            {
+                switch (assignment.Lhs.Type)
+                {
+                    case VarType.Double:
+                        EmitLine("conv.r8");
+                        break;
+                    default:
+                        Compiler.LogError($"Conversion to type {assignment.Lhs.Type} unknown");
+                        break;
+                }
+            }
+
             EmitLine($"stloc {assignment.Lhs.Name}");
         }
 
@@ -274,7 +319,8 @@ namespace mini_lang
                     EmitLine("call void [mscorlib]System.Console::Write(int32)");
                     break;
                 case VarType.Double:
-                    EmitLine("call class [mscorlib]System.Globalization.CultureInfo class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
+                    EmitLine(
+                        "call class [mscorlib]System.Globalization.CultureInfo class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
                     EmitLine("ldstr \"{0:0.000000}\"");
                     write.Rhs.Accept(this);
                     EmitLine("box [mscorlib]System.Double");
@@ -292,10 +338,28 @@ namespace mini_lang
             }
         }
 
-        public void VisitReturn(Return ret)
+        public void VisitRead(Read read)
         {
-            EmitLine("leave EndMain");
+            EmitLine("call string class [mscorlib]System.Console::ReadLine()");
+            EmitLine($"ldloca {read.Target.Name}");
+
+            switch (read.Target.Type)
+            {
+                case VarType.Integer:
+                    EmitLine("call bool int32::TryParse(string, [out] int32&)");
+                    break;
+                case VarType.Double:
+                    EmitLine("call bool float64::TryParse(string, [out] float64&)");
+                    break;
+                case VarType.Bool:
+                    EmitLine("call bool bool::TryParse(string, [out] bool&)");
+                    break;
+            }
+
+            EmitLine("pop");
         }
+
+        public void VisitReturn(Return ret) => EmitLine("leave EndMain");
 
         private void EmitLine(string code = null) => _sw.WriteLine(code);
 
@@ -308,9 +372,6 @@ namespace mini_lang
             EmitLine(".entrypoint");
             EmitLine(".try");
             EmitLine("{");
-            EmitLine();
-            EmitLine("// prolog");
-            EmitLine();
         }
 
         private void EmitEpilogue()
@@ -361,6 +422,8 @@ namespace mini_lang
             Console.WriteLine(";");
         }
 
+        public void VisitRead(Read read) => Console.WriteLine($"read {read.Target.Name}");
+
         public void VisitReturn(Return ret) => Console.WriteLine("return;");
     }
 
@@ -401,7 +464,7 @@ namespace mini_lang
             };
 
             bool success = parser.Parse();
-            Program program = parser.builder.Program;
+            Program program = parser.builder;
 
             var printer = new PrettyPrinter();
             program.Accept(printer);
