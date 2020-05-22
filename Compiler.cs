@@ -111,6 +111,57 @@ namespace mini_lang
         }
     }
 
+    #region BinOps
+
+    public abstract class BinOp : IEvaluable
+    {
+        public VarType Type { get; protected set; }
+
+        public readonly string Op;
+        public bool Conversion { get; protected set; }
+        public readonly IEvaluable Lhs, Rhs;
+
+        protected BinOp(string op, IEvaluable lhs, IEvaluable rhs)
+        {
+            Lhs = lhs;
+            Rhs = rhs;
+            Op = op;
+        }
+
+        public abstract void Accept(INodeVisitor visitor);
+
+        protected static void InvalidType(string op, VarType type) =>
+            Compiler.LogError($"Invalid type for operand {op}: {type}");
+    }
+
+    public class MathOp : BinOp
+    {
+        public MathOp(string op, IEvaluable lhs, IEvaluable rhs) : base(op, lhs, rhs)
+        {
+            if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
+            {
+                InvalidType(Op, VarType.Bool);
+            }
+
+            if (lhs.Type != rhs.Type)
+            {
+                Conversion = true;
+                Type = VarType.Double;
+            }
+            else
+            {
+                Type = lhs.Type;
+            }
+        }
+
+        public override void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitMathOp(this);
+        }
+    }
+
+    #endregion
+
     public class Assignment : INode
     {
         public readonly Identifier Lhs;
@@ -197,6 +248,7 @@ namespace mini_lang
 
     public interface INodeVisitor
     {
+        // Statements
         void VisitProgram(Program program);
         void VisitIdentifier(Identifier identifier);
         void VisitDeclaration(Declaration declaration);
@@ -204,7 +256,11 @@ namespace mini_lang
         void VisitConstant(Constant constant);
         void VisitWrite(Write write);
         void VisitRead(Read read);
+
         void VisitReturn(Return ret);
+
+        // Operations
+        void VisitMathOp(MathOp mathOp);
     }
 
     #region Builders
@@ -289,22 +345,32 @@ namespace mini_lang
             }
         }
 
+        private void EmitConversion(VarType targetType)
+        {
+            switch (targetType)
+            {
+                case VarType.Double:
+                    EmitLine("conv.r8");
+                    break;
+                case VarType.Integer:
+                    EmitLine("conv.i4");
+                    break;
+                case VarType.Bool:
+                    EmitLine("conv.i4");
+                    break;
+                default:
+                    Compiler.LogError($"Conversion to type {targetType} unknown");
+                    break;
+            }
+        }
+
         public void VisitAssignment(Assignment assignment)
         {
             assignment.Rhs.Accept(this);
 
-            // Add a conversion if need be
             if (assignment.Conversion)
             {
-                switch (assignment.Lhs.Type)
-                {
-                    case VarType.Double:
-                        EmitLine("conv.r8");
-                        break;
-                    default:
-                        Compiler.LogError($"Conversion to type {assignment.Lhs.Type} unknown");
-                        break;
-                }
+                EmitConversion(assignment.Lhs.Type);
             }
 
             EmitLine($"stloc {assignment.Lhs.Name}");
@@ -360,6 +426,33 @@ namespace mini_lang
         }
 
         public void VisitReturn(Return ret) => EmitLine("leave EndMain");
+
+        public void VisitMathOp(MathOp mathOp)
+        {
+            mathOp.Lhs.Accept(this);
+
+            if (mathOp.Conversion && mathOp.Lhs.Type != mathOp.Type)
+            {
+                EmitConversion(mathOp.Type);
+            }
+
+            mathOp.Rhs.Accept(this);
+
+            if (mathOp.Conversion && mathOp.Rhs.Type != mathOp.Type)
+            {
+                EmitConversion(mathOp.Type);
+            }
+
+            var opToOpcode = new Dictionary<string, string>()
+            {
+                {"+", "add"},
+                {"-", "sub"},
+                {"*", "mul"},
+                {"/", "div"}
+            };
+
+            EmitLine(opToOpcode[mathOp.Op]);
+        }
 
         private void EmitLine(string code = null) => _sw.WriteLine(code);
 
@@ -425,6 +518,13 @@ namespace mini_lang
         public void VisitRead(Read read) => Console.WriteLine($"read {read.Target.Name}");
 
         public void VisitReturn(Return ret) => Console.WriteLine("return;");
+
+        public void VisitMathOp(MathOp mathOp)
+        {
+            mathOp.Lhs.Accept(this);
+            Console.Write($" {mathOp.Op} ");
+            mathOp.Rhs.Accept(this);
+        }
     }
 
     #endregion
