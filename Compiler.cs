@@ -7,6 +7,13 @@ namespace mini_lang
 {
     #region Common
 
+    public class ParsingException : Exception
+    {
+        public ParsingException(string message) : base(message)
+        {
+        }
+    }
+
     public enum VarType
     {
         Integer,
@@ -537,6 +544,20 @@ namespace mini_lang
 
         public static ErrorLogger LogError;
 
+        public static Program Compile(string file)
+        {
+            var source = new FileStream(file, FileMode.Open);
+
+            var scanner = new Scanner(source);
+            var parser = new Parser(scanner);
+
+            // Hack - make use of the built-in line tracking in the scanner
+            LogError = (string message) => scanner.yyerror(message);
+
+            parser.Parse();
+            return parser.builder;
+        }
+
         public static int Main(string[] args)
         {
             string file;
@@ -551,28 +572,21 @@ namespace mini_lang
                 file = Console.ReadLine();
             }
 
-            var source = new FileStream(file, FileMode.Open);
-
-            var scanner = new Scanner(source);
-            var parser = new Parser(scanner);
-
-            // Hack - make use of the built-in line tracking in the scanner
-            LogError = (string message) =>
+            try
             {
-                scanner.yyerror(message);
-                Environment.Exit(1);
-            };
+                Program program = Compile(file);
+                var printer = new PrettyPrinter();
+                program.Accept(printer);
 
-            bool success = parser.Parse();
-            Program program = parser.builder;
+                var generator = new CilBuilder(file);
+                program.Accept(generator);
 
-            var printer = new PrettyPrinter();
-            program.Accept(printer);
-
-            var generator = new CilBuilder(file);
-            program.Accept(generator);
-
-            return success ? 0 : 1;
+                return 0;
+            }
+            catch (ParsingException e)
+            {
+                return 1;
+            }
         }
     }
 }

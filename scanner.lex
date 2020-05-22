@@ -9,6 +9,7 @@
     public override void yyerror(string message, params object[] args)
     {
         Console.Error.WriteLine("Parsing error at line " + lineNumber.ToString() + ": " + message);
+        throw new ParsingException(message);
     }
 %}
 
