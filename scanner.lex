@@ -16,7 +16,7 @@ Integer     ("0"|[1-9][0-9]*)
 Real        ("0"|[1-9][0-9]*)\.[0-9]+
 Bool        ("true"|"false")
 Ident       [a-zA-Z][a-zA-Z0-9]*
-Comment     "//".*\r
+Comment     "//".*
 String      "\""[^\n\"]*"\""
 
 %%
@@ -29,12 +29,16 @@ String      "\""[^\n\"]*"\""
 "bool"          { yylval.type = VarType.Bool; return (int)Tokens.Type; }
 ";"             { return (int)Tokens.Semicolon; }
 "="             { return (int)Tokens.Assign; }
+"write"         { return (int)Tokens.Write; }
+"return"        { return (int)Tokens.Return; }
 {Integer}       { yylval.node = new Constant(yytext, VarType.Integer); return (int)Tokens.LitInt; }
 {Real}          { yylval.node = new Constant(yytext, VarType.Double); return (int)Tokens.LitDouble; }
 {Bool}          { yylval.node = new Constant(yytext, VarType.Bool); return (int)Tokens.LitBool; }
 {Ident}         { yylval.str = yytext; return (int)Tokens.Ident; }
+{String}        { yylval.str = yytext; return (int)Tokens.String; }
 "\n"            { lineNumber++; }
 <<EOF>>         { }
+{Comment}       { }
 " "             { }
 "\t"            { }
 .               { yyerror(yytext); }

@@ -5,13 +5,14 @@ using GardensPoint;
 
 namespace mini_lang
 {
-    #region AST
+    #region Common
 
     public enum VarType
     {
         Integer,
         Double,
-        Bool
+        Bool,
+        String
     }
 
     public interface INode
@@ -19,15 +20,72 @@ namespace mini_lang
         void Accept(INodeVisitor visitor);
     }
 
-    public class Declaration : INode
+    public interface IEvaluable : INode
+    {
+        VarType Type { get; }
+    }
+
+    #endregion
+
+    #region AST
+
+    public class Identifier : IEvaluable
     {
         public readonly string Name;
+
+        public VarType Type
+        {
+            get
+            {
+                if (!Declaration.Declared.ContainsKey(Name))
+                {
+                    Compiler.LogError($"Variable {Name} has not been declared");
+                }
+
+                return Declaration.Declared[Name];
+            }
+        }
+
+
+        public Identifier(string name)
+        {
+            if (!Declaration.Declared.ContainsKey(name))
+            {
+                Compiler.LogError($"Variable {name} has not been declared");
+            }
+
+            Name = name;
+        }
+
+        public void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitIdentifier(this);
+        }
+    }
+
+    public class Declaration : INode
+    {
+        public readonly Identifier Identifier;
         public readonly VarType Type;
+
+        public static readonly Dictionary<string, VarType> Declared = new Dictionary<string, VarType>();
 
         public Declaration(VarType vType, string name)
         {
+            if (vType == VarType.String)
+            {
+                Compiler.LogError("Strings are only allowed in write expressions");
+            }
+
+            if (Declared.ContainsKey(name))
+            {
+                Compiler.LogError($"Redeclaration of variable {name}");
+            }
+
             Type = vType;
-            Name = name;
+
+            Declared[name] = Type; // Do not raise an "undeclared variable" exception in Identifier
+            Identifier = new Identifier(name);
         }
 
         public void Accept(INodeVisitor visitor)
@@ -36,10 +94,10 @@ namespace mini_lang
         }
     }
 
-    public class Constant : INode
+    public class Constant : INode, IEvaluable
     {
         public readonly string Value;
-        public readonly VarType Type;
+        public VarType Type { get; }
 
         public Constant(string value, VarType type)
         {
@@ -55,18 +113,41 @@ namespace mini_lang
 
     public class Assignment : INode
     {
-        public readonly string Lhs;
-        public readonly INode Rhs;
+        public readonly Identifier Lhs;
+        public readonly IEvaluable Rhs;
 
-        public Assignment(string lhs, INode rhs)
+        public Assignment(string name, IEvaluable rhs)
         {
-            Lhs = lhs;
+            Lhs = new Identifier(name);
             Rhs = rhs;
         }
 
         public void Accept(INodeVisitor visitor)
         {
             visitor.VisitAssignment(this);
+        }
+    }
+
+    public class Write : INode
+    {
+        public readonly IEvaluable Rhs;
+
+        public Write(IEvaluable rhs)
+        {
+            Rhs = rhs;
+        }
+
+        public void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitWrite(this);
+        }
+    }
+
+    public class Return : INode
+    {
+        public void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitReturn(this);
         }
     }
 
@@ -92,73 +173,40 @@ namespace mini_lang
     public interface INodeVisitor
     {
         void VisitProgram(Program program);
+        void VisitIdentifier(Identifier identifier);
         void VisitDeclaration(Declaration declaration);
         void VisitAssignment(Assignment assignment);
         void VisitConstant(Constant constant);
+        void VisitWrite(Write write);
+        void VisitReturn(Return ret);
     }
-
-    #endregion
 
     #region Builders
 
     public class AstBuilder
     {
         public Program Program { get; private set; }
-        private readonly Dictionary<string, VarType> _declared;
 
-        public Scanner Scanner { private get; set; }
+        public void AddProgram() => Program = new Program();
 
-        public AstBuilder()
-        {
-            _declared = new Dictionary<string, VarType>();
-        }
+        private void Append(INode node) => Program.Instructions.Add(node);
 
-        public void AddProgram()
-        {
-            Program = new Program();
-        }
+        public void AddDeclaration(string name, VarType type) => Append(new Declaration(type, name));
 
-        private void Append(INode node)
-        {
-            Program.Instructions.Add(node);
-        }
+        public void AddAssignment(string name, IEvaluable value) => Append(new Assignment(name, value));
 
-        public void AddDeclaration(string name, VarType type)
-        {
-            if (_declared.ContainsKey(name))
-            {
-                Scanner?.yyerror($"Redeclaration of variable {name}");
-            }
+        public void AddWrite(IEvaluable node) => Append(new Write(node));
 
-            _declared[name] = type;
-            Append(new Declaration(type, name));
-        }
-
-        public void AddAssignment(string name, INode value)
-        {
-            if (!_declared.ContainsKey(name))
-            {
-                Scanner?.yyerror($"Undeclared variable {name}");
-                Environment.Exit(1);
-            }
-
-            Append(new Assignment(name, value));
-        }
+        public void AddReturn() => Append(new Return());
     }
 
     public class CilBuilder : INodeVisitor, IDisposable
     {
         private readonly StreamWriter _sw;
 
-        public CilBuilder(string file)
-        {
-            _sw = new StreamWriter(file + ".il");
-        }
+        public CilBuilder(string file) => _sw = new StreamWriter(file + ".il");
 
-        public void Dispose()
-        {
-            _sw.Dispose();
-        }
+        public void Dispose() => _sw.Dispose();
 
         public void VisitProgram(Program program)
         {
@@ -168,23 +216,25 @@ namespace mini_lang
             _sw.Flush();
         }
 
+        public void VisitIdentifier(Identifier identifier) => EmitLine($"ldloc {identifier.Name}");
+
         public void VisitDeclaration(Declaration declaration)
         {
             switch (declaration.Type)
             {
                 case VarType.Bool:
                 {
-                    EmitLine($".locals init ( bool {declaration.Name} )");
+                    EmitLine($".locals init ( bool {declaration.Identifier.Name} )");
                     break;
                 }
                 case VarType.Integer:
                 {
-                    EmitLine($".locals init ( int32 {declaration.Name} )");
+                    EmitLine($".locals init ( int32 {declaration.Identifier.Name} )");
                     break;
                 }
                 case VarType.Double:
                 {
-                    EmitLine($".locals init ( float64 {declaration.Name} )");
+                    EmitLine($".locals init ( float64 {declaration.Identifier.Name} )");
                     break;
                 }
             }
@@ -203,24 +253,48 @@ namespace mini_lang
                 case VarType.Bool:
                     EmitLine(constant.Value == "true" ? "ldc.i4.1" : "ldc.i4.0");
                     break;
+                case VarType.String:
+                    EmitLine($"ldstr {constant.Value}");
+                    break;
             }
         }
 
         public void VisitAssignment(Assignment assignment)
         {
             assignment.Rhs.Accept(this);
-            EmitLine($"stloc {assignment.Lhs}");
+            EmitLine($"stloc {assignment.Lhs.Name}");
         }
 
-        private void EmitLine(string code = null)
+        public void VisitWrite(Write write)
         {
-            _sw.WriteLine(code);
+            EmitLine("ldstr \"{0}\""); // format string
+            write.Rhs.Accept(this);
+            MakeBoxed(write.Rhs);
+            EmitLine("call void [mscorlib]System.Console::Write(string, object)");
         }
 
-        private void EmitLine(string code, params object[] args)
+        public void VisitReturn(Return ret)
         {
-            _sw.WriteLine(code, args);
+            EmitLine("leave EndMain");
         }
+
+        private void MakeBoxed(IEvaluable node)
+        {
+            switch (node.Type)
+            {
+                case VarType.Integer:
+                    EmitLine("box [mscorlib]System.Int32");
+                    break;
+                case VarType.Double:
+                    EmitLine("box [mscorlib]System.Double");
+                    break;
+                case VarType.Bool:
+                    EmitLine("box [mscorlib]System.Boolean");
+                    break;
+            }
+        }
+
+        private void EmitLine(string code = null) => _sw.WriteLine(code);
 
         private void EmitPrologue()
         {
@@ -264,28 +338,39 @@ namespace mini_lang
             Console.WriteLine("}");
         }
 
-        public void VisitDeclaration(Declaration declaration)
-        {
-            Console.WriteLine($"{declaration.Type} {declaration.Name};");
-        }
+        public void VisitIdentifier(Identifier identifier) => Console.Write(identifier.Name);
 
-        public void VisitConstant(Constant constant)
-        {
-            Console.Write(constant.Value);
-        }
+        public void VisitDeclaration(Declaration d) => Console.WriteLine($"{d.Type} {d.Identifier.Name};");
+
+        public void VisitConstant(Constant constant) => Console.Write(constant.Value);
 
         public void VisitAssignment(Assignment assignment)
         {
-            Console.Write($"{assignment.Lhs} = ");
+            Console.Write($"{assignment.Lhs.Name} = ");
             assignment.Rhs.Accept(this);
             Console.WriteLine(";");
         }
+
+        public void VisitWrite(Write write)
+        {
+            Console.Write($"write ");
+            write.Rhs.Accept(this);
+            Console.WriteLine(";");
+        }
+
+        public void VisitReturn(Return ret) => Console.WriteLine("return;");
     }
+
+    #endregion
 
     #endregion
 
     public static class Compiler
     {
+        public delegate void ErrorLogger(string message);
+
+        public static ErrorLogger LogError;
+
         public static int Main(string[] args)
         {
             string file;
@@ -304,6 +389,13 @@ namespace mini_lang
 
             var scanner = new Scanner(source);
             var parser = new Parser(scanner);
+
+            // Hack - make use of the built-in line tracking in the scanner
+            LogError = (string message) =>
+            {
+                scanner.yyerror(message);
+                Environment.Exit(1);
+            };
 
             bool success = parser.Parse();
             Program program = parser.builder.Program;
