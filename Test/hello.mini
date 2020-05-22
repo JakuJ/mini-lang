@@ -3,9 +3,14 @@ program {
     i = 5;
     d = 123;
     b = true;
-    write i; write "\n";
-    write d; write "\n";
-    write b; write "\n";
+    
+    {
+        write i; write "\n";
+        { 
+            write d; write "\n";
+        }
+        write b; write "\n";
+    }
     
     read i;
     read d;

@@ -35,7 +35,11 @@ program: Program { builder.AddProgram(); } LBrace lines RBrace ;
 lines: lines line 
      | ;
 
-line: expression Semicolon ;
+line: instruction | expression Semicolon ;
+
+instruction: block;
+
+block: LBrace lines RBrace;
 
 expression: declaration 
           | assignment
