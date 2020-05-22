@@ -288,7 +288,7 @@ namespace mini_lang
         public void AddReturn() => Append(new Return());
     }
 
-    public class CilBuilder : INodeVisitor, IDisposable
+    public class CilBuilder : INodeVisitor
     {
         private readonly StreamWriter _sw;
 
@@ -300,7 +300,7 @@ namespace mini_lang
             _sw = new StreamWriter(OutputFile);
         }
 
-        public void Dispose() => _sw.Dispose();
+        ~CilBuilder() => _sw.Close();
 
         public void VisitProgram(Program program)
         {
@@ -585,6 +585,7 @@ namespace mini_lang
             return (parser.builder, errors);
         }
 
+        [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
         public static int Main(string[] args)
         {
             string file;
