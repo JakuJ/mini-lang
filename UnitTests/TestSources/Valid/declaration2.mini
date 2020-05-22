@@ -1,0 +1,7 @@
+program {
+    int x;
+    int x2;
+    
+    double y; double y2k; 
+    bool z; bool z2f13e; bool asdf;
+}

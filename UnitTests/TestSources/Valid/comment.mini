@@ -1,0 +1,14 @@
+// Comment before program
+
+program {
+    // Comment inside program
+
+// vv Empty comment vv
+//
+    
+    // Weird stuff 1726345jkadhbf&*@^#%&Q(^$#\r\n;;';;
+    
+    int x; // Comment after statement
+}
+
+// Comment after program

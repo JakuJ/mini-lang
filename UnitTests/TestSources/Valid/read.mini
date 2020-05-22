@@ -1,0 +1,13 @@
+program {
+    int x;
+    double d;
+    bool b;
+    
+    read x;
+    read d;
+    read b;
+    
+    read x;
+    read d;
+    read b;
+}

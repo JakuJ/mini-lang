@@ -6,7 +6,7 @@
 %{  
     public void ParseError(string message)
     {
-        Console.Error.WriteLine("P | " + message + " on line " + _scanner.lineNumber.ToString());
+        Console.Error.WriteLine(message + " on line " + _scanner.lineNumber.ToString());
         _scanner.errors++;
     }
     
@@ -24,7 +24,6 @@ public VarType type;
 %token Assign Or And BitOr BitAnd Eq Neq Gt Gte Lt Lte Plus Minus Mult Div Not BitNot
 %token LParen RParen LBrace RBrace Semicolon
 %token Ident String LitInt LitDouble LitBool
-%token Endl
 
 %token <type> Type
 %token <str> String Ident
@@ -35,20 +34,17 @@ public VarType type;
 
 %%
 
-start: Program { builder.AddProgram(); } start_cont ;
-
-start_cont: Endl block
-          | block
-          ;
+start: Program { builder.AddProgram(); } block ;
 
 statements: statements statement
           | ;
 
-statement: block Endl
-         | oneliner Semicolon Endl
-         | oneliner Endl { ParseError("Syntax error, missing semicolon"); }
-         | error Endl { yyerrok(); }
-         | Endl
+statement: block
+         | oneliner Semicolon
+         | oneliner { ParseError("Syntax error, missing semicolon"); }
+         | error Semicolon { yyerrok(); }
+         | error EOF
+         | error { yyerrok(); }
          ;
          
 oneliner: declaration

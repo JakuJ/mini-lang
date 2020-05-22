@@ -1,0 +1,10 @@
+program {
+    {
+        double d;
+        {
+            read d;
+        }
+    }
+    
+    write d;
+}

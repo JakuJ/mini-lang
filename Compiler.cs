@@ -51,7 +51,7 @@ namespace mini_lang
         {
             if (!Declaration.Declared.ContainsKey(name))
             {
-                Compiler.Error($"Variable {name} has not been declared", true);
+                Compiler.Error($"Variable {name} has not been declared");
             }
 
             Name = name;
@@ -68,15 +68,10 @@ namespace mini_lang
         public readonly Identifier Identifier;
         public readonly VarType Type;
 
-        public static readonly Dictionary<string, VarType> Declared = new Dictionary<string, VarType>();
+        public static Dictionary<string, VarType> Declared = new Dictionary<string, VarType>();
 
         public Declaration(VarType vType, string name)
         {
-            if (vType == VarType.String)
-            {
-                Compiler.Error("Strings are only allowed in write expressions");
-            }
-
             if (Declared.ContainsKey(name))
             {
                 Compiler.Error($"Redeclaration of variable {name}");
@@ -173,13 +168,20 @@ namespace mini_lang
             Lhs = new Identifier(name);
             Rhs = rhs;
 
-            if (Lhs.Type == VarType.Double && Rhs.Type == VarType.Integer)
+            try
             {
-                Conversion = true;
+                if (Lhs.Type == VarType.Double && Rhs.Type == VarType.Integer)
+                {
+                    Conversion = true;
+                }
+                else if (Lhs.Type != Rhs.Type)
+                {
+                    Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
+                }
             }
-            else if (Lhs.Type != Rhs.Type)
+            catch (CompilerException)
             {
-                Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
+                // Couldn't get type information - identifier was not declared
             }
         }
 
@@ -556,7 +558,7 @@ namespace mini_lang
             Error = (string message, bool interrupt) =>
             {
                 // Hack - make use of the built-in line tracking in the scanner
-                Console.Error.WriteLine($"C | {message} on line {scanner.lineNumber}");
+                Console.Error.WriteLine($"{message} on line {scanner.lineNumber}");
                 errors++;
                 if (interrupt)
                 {

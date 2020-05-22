@@ -9,7 +9,7 @@
     
     public override void yyerror(string message, params object[] args)
     {
-        Console.Error.WriteLine("L | " + message + " on line " + lineNumber.ToString());
+        Console.Error.WriteLine(message + " on line " + lineNumber.ToString());
         errors++;
     }
 %}
@@ -17,7 +17,7 @@
 Integer     ("0"|[1-9][0-9]*)
 Real        ("0"|[1-9][0-9]*)\.[0-9]+
 Bool        ("true"|"false")
-Ident       [a-zA-Z][a-zA-Z0-9]*
+Ident       ([a-zA-Z][a-zA-Z0-9]*)
 Comment     "//".*
 String      "\""[^\n\"]*"\""
 
@@ -59,8 +59,8 @@ String      "\""[^\n\"]*"\""
 {Bool}          { yylval.node = new Constant(yytext, VarType.Bool); return (int)Tokens.LitBool; }
 {Ident}         { yylval.str = yytext; return (int)Tokens.Ident; }
 {String}        { yylval.str = yytext; return (int)Tokens.String; }
-"\n"            { lineNumber++; return (int)Tokens.Endl; }
-<<EOF>>         { }
+"\n"            { lineNumber++; }
+<<EOF>>         { return (int)Tokens.EOF; }
 {Comment}       { }
 " "             { }
 "\t"            { }

@@ -1,0 +1,15 @@
+program {
+    write "Simple";
+    write "\n";
+    write "123";
+    write "123.0234";
+    write "98713ny458vyno88&t8&^VR&^VESA*DBUYU\n\n\r";
+    write "''\'bool int double write ''";
+    write "write";
+    write ";;;";
+    
+    write 1;
+    write 3.14;
+    write false;
+    write true;
+}
