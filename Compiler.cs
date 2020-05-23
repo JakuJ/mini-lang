@@ -211,6 +211,24 @@ namespace mini_lang
         }
     }
 
+    public class LogicOp : BinOp
+    {
+        public LogicOp(string op, IEvaluable lhs, IEvaluable rhs) : base(op, lhs, rhs)
+        {
+            Type = VarType.Bool;
+
+            if (Lhs.Type != VarType.Bool || Rhs.Type != VarType.Bool)
+            {
+                InvalidType();
+            }
+        }
+
+        public override void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitLogicOp(this);
+        }
+    }
+
     #endregion
 
     public class Assignment : INode
@@ -320,6 +338,7 @@ namespace mini_lang
         // Operations
         void VisitMathOp(MathOp mathOp);
         void VisitCompOp(CompOp compOp);
+        void VisitLogicOp(LogicOp logicOp);
     }
 
     #region Builders
@@ -327,6 +346,8 @@ namespace mini_lang
     public class AstBuilder
     {
         private Program _program;
+
+        private static Dictionary<string, VarType> _declared = new Dictionary<string, VarType>();
 
         public static implicit operator Program(AstBuilder builder) => builder._program;
 
@@ -345,11 +366,14 @@ namespace mini_lang
         public void AddReturn() => Append(new Return());
     }
 
-    public class CilBuilder : INodeVisitor
+    public class CilBuilder : INodeVisitor, IDisposable
     {
         private readonly StreamWriter _sw;
 
         public string OutputFile { get; }
+
+        private int _labelNum = 0;
+        private string Label => $"LABEL_{_labelNum++}";
 
         public CilBuilder(string file)
         {
@@ -357,7 +381,10 @@ namespace mini_lang
             _sw = new StreamWriter(OutputFile);
         }
 
-        ~CilBuilder() => _sw.Close();
+        ~CilBuilder()
+        {
+            Dispose(false);
+        }
 
         public void VisitProgram(Program program)
         {
@@ -424,7 +451,7 @@ namespace mini_lang
                     EmitLine("conv.i4");
                     break;
                 default:
-                    Compiler.Error($"Conversion to type {targetType} unknown");
+                    Compiler.Error($"Conversion to type {targetType} unknown"); // TODO - this should never throw
                     break;
             }
         }
@@ -550,6 +577,18 @@ namespace mini_lang
             EmitLine(opToOpcode[compOp.Op]);
         }
 
+        public void VisitLogicOp(LogicOp logicOp)
+        {
+            string label = Label;
+            logicOp.Lhs.Accept(this);
+            EmitLine("dup");
+            EmitLine(logicOp.Op == "&&" ? $"brfalse {label}" : $"brtrue {label}");
+            EmitLine("pop");
+            logicOp.Rhs.Accept(this);
+            EmitLine($"{label}:");
+            EmitLine("nop"); // TODO - unnecessary?
+        }
+
         private void EmitLine(string code = null) => _sw.WriteLine(code);
 
         private void EmitPrologue()
@@ -575,6 +614,20 @@ namespace mini_lang
             EmitLine("}");
             EmitLine("EndMain: ret");
             EmitLine("}");
+        }
+
+        private void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                _sw?.Dispose();
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 
@@ -625,6 +678,8 @@ namespace mini_lang
         public void VisitMathOp(MathOp mathOp) => VisitBinOp(mathOp);
 
         public void VisitCompOp(CompOp compOp) => VisitBinOp(compOp);
+
+        public void VisitLogicOp(LogicOp logicOp) => VisitBinOp(logicOp);
     }
 
     #endregion

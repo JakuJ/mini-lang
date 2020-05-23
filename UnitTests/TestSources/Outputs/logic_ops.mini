@@ -1,0 +1,14 @@
+program {
+    write 1 < 2 && 3 < 4; write " "; // True
+    
+    int n;
+    n = 5;
+    
+    write 2 * n < 3 * n && n + 5 >= n - 2; write " "; // True
+    
+    write 1 + 2 == 3 * 1.0 && 0 == 1.0; write " "; // False  
+    
+    write 0 < 1 || 5 == 1 / 0; write " "; // True, do not divide by 0 
+    
+    write 1 == 2 && 5 == 1 / 0; // False, do not divide by 0 
+}

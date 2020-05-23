@@ -100,6 +100,7 @@ namespace UnitTests
                     ("math_ops.mini", "3\n-1\n2\n0.000000\n0.500000\n2.000000\n6\n-2.000000\n25.000000\n6\n6\n"),
                     ("bit_ops.mini", "15\n40.000000\n0\n3\n"),
                     ("comp_ops.mini", "True False False False True True True True True"),
+                    ("logic_ops.mini", "True True False True False"),
                 };
 
                 foreach ((string path, string expected) in cases)

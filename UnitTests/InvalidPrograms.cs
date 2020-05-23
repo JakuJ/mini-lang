@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -25,9 +26,9 @@ namespace UnitTests
         public void InvalidProgram(string path, int atLeast)
         {
             var errs = 0;
-
             Assert.DoesNotThrow(() => { errs = CompilationErrors(path); });
             Assert.GreaterOrEqual(errs, atLeast);
+            Console.Error.WriteLine($"Passed, {errs} errors found");
         }
     }
 
@@ -50,6 +51,7 @@ namespace UnitTests
                     ("math_ops.mini", 7),
                     ("bit_ops.mini", 5),
                     ("comp_ops.mini", 4),
+                    ("logic_ops.mini", 4),
                 };
 
                 foreach ((string path, int expected) in cases)

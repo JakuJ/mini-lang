@@ -20,6 +20,10 @@ Bool        ("true"|"false")
 Ident       ([a-zA-Z][a-zA-Z0-9]*)
 Comment     "//".*
 String      "\""[^\n\"]*"\""
+BitAnd      "&"{1}
+LogicAnd    "&"{2}
+BitOr       "|"{1}
+LogicOr     "|"{2}
 
 %%
 
@@ -41,10 +45,10 @@ String      "\""[^\n\"]*"\""
 "<"             { return (int)Tokens.Lt; }
 "!="            { return (int)Tokens.Neq; }
 "!"             { return (int)Tokens.Not; }
-"||"            { return (int)Tokens.Or; }
-"|"             { return (int)Tokens.BitOr; }
-"&&"            { return (int)Tokens.And; }
-"&"             { return (int)Tokens.BitAnd; }
+{LogicOr}       { return (int)Tokens.Or; }
+{BitOr}         { return (int)Tokens.BitOr; }
+{LogicAnd}      { return (int)Tokens.And; }
+{BitAnd}        { return (int)Tokens.BitAnd; }
 ";"             { return (int)Tokens.Semicolon; }
 "-"             { return (int)Tokens.Minus; }
 "~"             { return (int)Tokens.BitNot; }
