@@ -7,6 +7,9 @@ namespace mini_lang
 {
     #region Common
 
+    /// <summary>
+    /// Defines data types available in the language.
+    /// </summary>
     public enum VarType
     {
         Integer,
@@ -15,11 +18,19 @@ namespace mini_lang
         String
     }
 
+    /// <summary>
+    /// An interface for arbitrary nodes in the AST.
+    /// </summary>
+    /// <seealso cref="INodeVisitor"/>
     public interface INode
     {
         void Accept(INodeVisitor visitor);
     }
 
+    /// <inheritdoc />
+    /// <summary>
+    /// An interface for expressions evaluable to some <see cref="VarType" />.
+    /// </summary>
     public interface IEvaluable : INode
     {
         VarType Type { get; }
@@ -40,10 +51,7 @@ namespace mini_lang
             Type = type;
         }
 
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitIdentifier(this);
-        }
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitIdentifier(this);
     }
 
     public class Constant : IEvaluable
@@ -57,10 +65,7 @@ namespace mini_lang
             Type = type;
         }
 
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitConstant(this);
-        }
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitConstant(this);
     }
 
     #region Operators
@@ -103,12 +108,13 @@ namespace mini_lang
 
         private void InvalidType() => Compiler.Error($"Invalid operand type: {Op} {Rhs.Type}");
 
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitUnaryOp(this);
-        }
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitUnaryOp(this);
     }
 
+    /// <inheritdoc />
+    /// <summary>
+    /// An abstract base class for all binary operators.
+    /// </summary>
     public abstract class BinOp : IEvaluable
     {
         public VarType Type { get; protected set; }
@@ -162,10 +168,7 @@ namespace mini_lang
             }
         }
 
-        public override void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitMathOp(this);
-        }
+        public override void Accept(INodeVisitor visitor) => visitor.VisitMathOp(this);
     }
 
     public class CompOp : BinOp
@@ -178,36 +181,30 @@ namespace mini_lang
 
             if (Op == "==" || Op == "!=")
             {
-                if (lhs.Type == rhs.Type) return; // Cool and good
+                if (lhs.Type == rhs.Type) return;
                 if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
                 {
                     InvalidType();
                 }
-                else // Integer and Double
+                else
                 {
-                    // Convert both to double 
                     CastTo = VarType.Double;
                 }
             }
-            else // < <= > >=
+            else
             {
                 if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
                 {
                     InvalidType();
                 }
-                else if (lhs.Type != rhs.Type) // Integer and Double
+                else if (lhs.Type != rhs.Type)
                 {
                     CastTo = VarType.Double;
                 }
-
-                // Same types and neither is Bool - do nothing
             }
         }
 
-        public override void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitCompOp(this);
-        }
+        public override void Accept(INodeVisitor visitor) => visitor.VisitCompOp(this);
     }
 
     public class LogicOp : BinOp
@@ -222,10 +219,7 @@ namespace mini_lang
             }
         }
 
-        public override void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitLogicOp(this);
-        }
+        public override void Accept(INodeVisitor visitor) => visitor.VisitLogicOp(this);
     }
 
     #endregion
@@ -243,10 +237,7 @@ namespace mini_lang
             Identifier = identifier;
         }
 
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitDeclaration(this);
-        }
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitDeclaration(this);
     }
 
     public class Assignment : INode
@@ -270,63 +261,39 @@ namespace mini_lang
             }
         }
 
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitAssignment(this);
-        }
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitAssignment(this);
     }
 
     public class Write : INode
     {
         public readonly IEvaluable Rhs;
 
-        public Write(IEvaluable rhs)
-        {
-            Rhs = rhs;
-        }
+        public Write(IEvaluable rhs) => Rhs = rhs;
 
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitWrite(this);
-        }
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitWrite(this);
     }
 
     public class Read : INode
     {
         public readonly Identifier Target;
 
-        public Read(Identifier target)
-        {
-            Target = target;
-        }
+        public Read(Identifier target) => Target = target;
 
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitRead(this);
-        }
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitRead(this);
     }
 
     public class Return : INode
     {
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitReturn(this);
-        }
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitReturn(this);
     }
 
     public class Program : INode
     {
         public List<INode> Instructions { get; }
 
-        public Program()
-        {
-            Instructions = new List<INode>();
-        }
+        public Program() => Instructions = new List<INode>();
 
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitProgram(this);
-        }
+        public void Accept(INodeVisitor visitor) => visitor.VisitProgram(this);
     }
 
     #endregion
@@ -358,7 +325,9 @@ namespace mini_lang
     {
         public Program Program { get; private set; }
 
-        private readonly Dictionary<string, VarType> _declared = new Dictionary<string, VarType>();
+        private readonly Dictionary<string, VarType> _declared;
+
+        public AstBuilder() => _declared = new Dictionary<string, VarType>();
 
         public Identifier CreateIdentifier(string name)
         {
@@ -399,17 +368,26 @@ namespace mini_lang
     public class CilBuilder : INodeVisitor
     {
         private readonly StreamWriter _sw;
+        private int _labelNum;
 
-        public string OutputFile { get; }
-
-        private int _labelNum = 0;
+        /// <summary>
+        /// A computed property used for generating unique labels.
+        /// </summary>
+        /// <value>A unique label</value>
         private string Label => $"LABEL_{_labelNum++}";
+
+        /// <summary>
+        /// Path to the generated CIL file.
+        /// </summary>
+        public string OutputFile { get; }
 
         public CilBuilder(string file)
         {
             OutputFile = file + ".il";
             _sw = new StreamWriter(OutputFile);
         }
+
+        private void EmitLine(string code) => _sw.WriteLine(code);
 
         public void VisitProgram(Program program)
         {
@@ -501,7 +479,9 @@ namespace mini_lang
                     EmitLine(
                         "call class [mscorlib]System.Globalization.CultureInfo class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
                     EmitLine("ldstr \"{0:0.000000}\"");
+
                     write.Rhs.Accept(this);
+
                     EmitLine("box [mscorlib]System.Double");
                     EmitLine("call string string::Format(class [mscorlib]System.IFormatProvider, string, object)");
                     EmitLine("call void [mscorlib]System.Console::Write(string)");
@@ -633,8 +613,6 @@ namespace mini_lang
             }
         }
 
-        private void EmitLine(string code = null) => _sw.WriteLine(code);
-
         private void EmitPrologue()
         {
             EmitLine(".assembly extern mscorlib { }");
@@ -719,21 +697,39 @@ namespace mini_lang
 
     #region Main
 
-    public class CompilerException : Exception
+    /// <inheritdoc />
+    /// <summary>
+    /// An exception thrown when the AST builder can no longer proceed. 
+    /// </summary>
+    public class AstException : Exception
     {
-        public CompilerException(string message) : base(message)
+        /// <inheritdoc cref="AstException"/>
+        public AstException(string message) : base(message)
         {
         }
     }
 
+    /// <summary>
+    /// Main <see cref="Compiler"/> class.
+    /// Defines the <see cref="Compile"/> method, which encapsulates the compiler's logic.
+    /// </summary>
     public static class Compiler
     {
+        /// <summary>
+        /// A delegate defining methods used to report compilation errors.
+        /// </summary>
+        /// <param name="message">A message to be displayed</param>
+        /// <param name="interrupt">A flag indicating whether to hat the execution of the program.</param>
+        /// <exception cref="AstException">Thrown when <paramref name="interrupt"/> is set</exception>
         public delegate void ErrorLogger(string message, bool interrupt = false);
 
-        /// <summary>
-        /// ThreadStatic prevents parallel tests from overwriting each other's delegate,
-        /// and by doing so, messing with the error count for a given test
-        /// </summary>
+        /// <inheritdoc cref="ErrorLogger"/>
+        /// <remarks>
+        /// This should only be assigned once, in the <see cref="Compile"/> method of the <see cref="Compiler"/> class.
+        /// Using a thread-static field prevents parallel tests from overwriting each other's delegate,
+        /// and by doing so, messing with the error count for a given test.
+        /// </remarks>
+        /// <seealso cref="ThreadStaticAttribute"/>
         [ThreadStatic] public static ErrorLogger Error;
 
         public static (Program, int) Compile(string file)
@@ -741,7 +737,6 @@ namespace mini_lang
             var source = new FileStream(file, FileMode.Open);
 
             var builder = new AstBuilder();
-
             var scanner = new Scanner(source);
             var parser = new Parser(scanner, builder);
 
@@ -753,13 +748,13 @@ namespace mini_lang
                 Console.Error.WriteLine($"{message} on line {scanner.lineNumber}");
 
                 // This is safe since we're modifying a static closure using a thread-static delegate
-                // IDE-specific warning suppression below
+                // IDE-specific warning suppression below:
                 // ReSharper disable once AccessToModifiedClosure
                 errors++;
 
                 if (interrupt) // TODO: Maybe unused
                 {
-                    throw new CompilerException("Fatal error, cannot analyze further");
+                    throw new AstException("Fatal error, cannot analyze further");
                 }
             };
 
@@ -767,13 +762,14 @@ namespace mini_lang
             {
                 parser.Parse();
             }
-            catch (CompilerException e)
+            catch (AstException e)
             {
                 Console.Error.WriteLine(e.Message);
                 Console.Error.WriteLine($"{errors} errors found"); // TODO: Same thing as in Main because of early exit
                 Environment.Exit(1);
             }
 
+            // Also count errors reported by the lexing and parsing classes
             errors += scanner.Errors;
 
             return (builder.Program, errors);

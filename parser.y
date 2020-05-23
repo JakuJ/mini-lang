@@ -20,10 +20,9 @@ public IEvaluable node;
 public VarType type;
 }
 
-%token Program If Else While Read Write Return Type
+%token Program If Else While Read Write Return
 %token Assign Or And BitOr BitAnd Eq Neq Gt Gte Lt Lte Plus Minus Mult Div Not BitNot
 %token LParen RParen LBrace RBrace Semicolon
-%token Ident String LitInt LitDouble LitBool
 
 %token <type> Type
 %token <str> String Ident
