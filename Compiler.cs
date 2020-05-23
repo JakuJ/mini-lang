@@ -106,14 +106,13 @@ namespace mini_lang
         }
     }
 
-    #region BinOps
+    #region Operators
 
     public abstract class BinOp : IEvaluable
     {
         public VarType Type { get; protected set; }
 
         public readonly string Op;
-        public bool Conversion { get; protected set; }
         public readonly IEvaluable Lhs, Rhs;
 
         protected BinOp(string op, IEvaluable lhs, IEvaluable rhs)
@@ -125,43 +124,39 @@ namespace mini_lang
 
         public abstract void Accept(INodeVisitor visitor);
 
-        protected static void InvalidType(string op, VarType type) =>
-            Compiler.Error($"Operand type {type} invalid for operator {op}");
+        protected void InvalidType() => Compiler.Error($"Invalid operand types: {Lhs.Type} {Op} {Rhs.Type}");
     }
 
     public class MathOp : BinOp
     {
+        public bool Conversion { get; }
+
         public MathOp(string op, IEvaluable lhs, IEvaluable rhs) : base(op, lhs, rhs)
         {
-            if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
+            if (op == "|" || op == "&") // Bit operators only accept Integers as operands
             {
-                InvalidType(Op, VarType.Bool);
-                Type = VarType.Bool; // Set something to allow for error recovery
-            }
-            else if (op == "|" || op == "&") // Bit operators only accept Integers as operands
-            {
-                if (lhs.Type != VarType.Integer)
+                if (lhs.Type != VarType.Integer || rhs.Type != VarType.Integer)
                 {
-                    InvalidType(Op, lhs.Type);
-                }
-
-                if (rhs.Type != VarType.Integer)
-                {
-                    InvalidType(Op, rhs.Type);
+                    InvalidType();
                 }
 
                 Type = VarType.Integer;
             }
-            else if (lhs.Type != rhs.Type) // Only + - * / and Integer or Double
+            else
             {
-                Conversion = true;
-                if (rhs.Type == VarType.Double || lhs.Type == VarType.Double)
+                if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
                 {
-                    Type = VarType.Double; // One of the types is Double
+                    InvalidType();
+                    Type = VarType.Bool; // Set something to allow for error recovery
+                }
+                else if (lhs.Type != rhs.Type) // Only + - * /
+                {
+                    Conversion = true;
+                    Type = VarType.Double;
                 }
                 else
                 {
-                    Type = lhs.Type; // Both types are the same
+                    Type = lhs.Type;
                 }
             }
         }
@@ -172,13 +167,57 @@ namespace mini_lang
         }
     }
 
+    public class CompOp : BinOp
+    {
+        public VarType? CastTo { get; }
+
+        public CompOp(string op, IEvaluable lhs, IEvaluable rhs) : base(op, lhs, rhs)
+        {
+            Type = VarType.Bool;
+
+            if (Op == "==" || Op == "!=")
+            {
+                if (lhs.Type != rhs.Type)
+                {
+                    if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
+                    {
+                        InvalidType();
+                    }
+                    else // Integer and Double
+                    {
+                        // Convert both to double 
+                        CastTo = VarType.Double;
+                    }
+                }
+            }
+            else // < <= > >=
+            {
+                if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
+                {
+                    InvalidType();
+                }
+                else if (lhs.Type != rhs.Type) // Integer and Double
+                {
+                    CastTo = VarType.Double;
+                }
+
+                // Same types and neither is Bool - do nothing
+            }
+        }
+
+        public override void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitCompOp(this);
+        }
+    }
+
     #endregion
 
     public class Assignment : INode
     {
         public readonly Identifier Lhs;
         public readonly IEvaluable Rhs;
-        public readonly bool Conversion = false;
+        public readonly bool Conversion;
 
         public Assignment(string name, IEvaluable rhs)
         {
@@ -199,6 +238,7 @@ namespace mini_lang
             catch (CompilerException)
             {
                 // Couldn't get type information - identifier was not declared
+                // This only ever happens in error recovery and is safe to ignore
             }
         }
 
@@ -275,11 +315,11 @@ namespace mini_lang
         void VisitConstant(Constant constant);
         void VisitWrite(Write write);
         void VisitRead(Read read);
-
         void VisitReturn(Return ret);
 
         // Operations
         void VisitMathOp(MathOp mathOp);
+        void VisitCompOp(CompOp compOp);
     }
 
     #region Builders
@@ -481,6 +521,35 @@ namespace mini_lang
             EmitLine(opToOpcode[mathOp.Op]);
         }
 
+        public void VisitCompOp(CompOp compOp)
+        {
+            compOp.Lhs.Accept(this);
+
+            if (compOp.CastTo is VarType type && compOp.Lhs.Type != type)
+            {
+                EmitConversion(type);
+            }
+
+            compOp.Rhs.Accept(this);
+
+            if (compOp.CastTo is VarType type2 && compOp.Rhs.Type != type2)
+            {
+                EmitConversion(type2);
+            }
+
+            var opToOpcode = new Dictionary<string, string>()
+            {
+                {"==", "ceq"},
+                {"!=", "ceq\nldc.i4.0\nceq"}, // not ==
+                {"<", "clt"},
+                {"<=", "cgt\nldc.i4.0\nceq"}, // not >
+                {">", "cgt"},
+                {">=", "clt\nldc.i4.0\nceq"}, // not <
+            };
+
+            EmitLine(opToOpcode[compOp.Op]);
+        }
+
         private void EmitLine(string code = null) => _sw.WriteLine(code);
 
         private void EmitPrologue()
@@ -546,12 +615,16 @@ namespace mini_lang
 
         public void VisitReturn(Return ret) => Console.WriteLine("return;");
 
-        public void VisitMathOp(MathOp mathOp)
+        private void VisitBinOp(BinOp binOp)
         {
-            mathOp.Lhs.Accept(this);
-            Console.Write($" {mathOp.Op} ");
-            mathOp.Rhs.Accept(this);
+            binOp.Lhs.Accept(this);
+            Console.Write($" {binOp.Op} ");
+            binOp.Rhs.Accept(this);
         }
+
+        public void VisitMathOp(MathOp mathOp) => VisitBinOp(mathOp);
+
+        public void VisitCompOp(CompOp compOp) => VisitBinOp(compOp);
     }
 
     #endregion

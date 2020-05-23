@@ -97,12 +97,12 @@ op_4: op_4 Plus op_3 { $$ = new MathOp("+", $1, $3); }
     | op_4 Minus op_3 { $$ = new MathOp("-", $1, $3); }
     | op_3 ;
     
-op_5: op_5 Eq op_4
-    | op_5 Neq op_4
-    | op_5 Gt op_4
-    | op_5 Gte op_4
-    | op_5 Lt op_4
-    | op_5 Lte op_4
+op_5: op_5 Eq op_4 { $$ = new CompOp("==", $1, $3); }
+    | op_5 Neq op_4 { $$ = new CompOp("!=", $1, $3); }
+    | op_5 Gt op_4 { $$ = new CompOp(">", $1, $3); }
+    | op_5 Gte op_4 { $$ = new CompOp(">=", $1, $3); }
+    | op_5 Lt op_4 { $$ = new CompOp("<", $1, $3); }
+    | op_5 Lte op_4 { $$ = new CompOp("<=", $1, $3); }
     | op_4 ;
     
 op_6: op_6 And op_5
