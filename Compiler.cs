@@ -141,7 +141,7 @@ namespace mini_lang
             if (lhs.Type != rhs.Type)
             {
                 Conversion = true;
-                Type = VarType.Double;
+                Type = rhs.Type == VarType.Double ? VarType.Double : lhs.Type;
             }
             else
             {
