@@ -5,12 +5,12 @@
 
 %{
     public int lineNumber = 1;
-    public int errors = 0;
+    public int Errors { get; set; }
     
     public override void yyerror(string message, params object[] args)
     {
         Console.Error.WriteLine(message + " on line " + lineNumber.ToString());
-        errors++;
+        Errors++;
     }
 %}
 

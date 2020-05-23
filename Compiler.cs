@@ -151,17 +151,15 @@ namespace mini_lang
 
             if (Op == "==" || Op == "!=")
             {
-                if (lhs.Type != rhs.Type)
+                if (lhs.Type == rhs.Type) return; // Cool and good
+                if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
                 {
-                    if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
-                    {
-                        InvalidType();
-                    }
-                    else // Integer and Double
-                    {
-                        // Convert both to double 
-                        CastTo = VarType.Double;
-                    }
+                    InvalidType();
+                }
+                else // Integer and Double
+                {
+                    // Convert both to double 
+                    CastTo = VarType.Double;
                 }
             }
             else // < <= > >=
@@ -581,7 +579,6 @@ namespace mini_lang
             EmitLine("pop");
             logicOp.Rhs.Accept(this);
             EmitLine($"{label}:");
-            EmitLine("nop"); // TODO - unnecessary?
         }
 
         private void EmitLine(string code = null) => _sw.WriteLine(code);
@@ -692,18 +689,23 @@ namespace mini_lang
     {
         public delegate void ErrorLogger(string message, bool interrupt = false);
 
-        public static ErrorLogger Error;
+        /// <summary>
+        /// ThreadStatic prevents parallel unit tests from overwriting each other's delegate
+        /// </summary>
+        [ThreadStatic] public static ErrorLogger Error;
 
         public static (Program, int) Compile(string file)
         {
             var source = new FileStream(file, FileMode.Open);
 
+            var builder = new AstBuilder();
+
             var scanner = new Scanner(source);
-            var parser = new Parser(scanner);
+            var parser = new Parser(scanner, builder);
 
             var errors = 0;
 
-            Error = (string message, bool interrupt) =>
+            Error = (message, interrupt) =>
             {
                 // Hack - make use of the built-in line tracking in the scanner
                 Console.Error.WriteLine($"{message} on line {scanner.lineNumber}");
@@ -722,9 +724,9 @@ namespace mini_lang
             {
             }
 
-            errors += scanner.errors;
+            errors += scanner.Errors;
 
-            return (parser.builder, errors);
+            return (builder, errors);
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]

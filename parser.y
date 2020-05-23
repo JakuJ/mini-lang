@@ -4,13 +4,13 @@
 %output=Parser.cs
 
 %{  
-    public void ParseError(string message)
+    private AstBuilder builder;
+    
+    private void ParseError(string message)
     {
         Console.Error.WriteLine(message + " on line " + _scanner.lineNumber.ToString());
-        _scanner.errors++;
+        _scanner.Errors++;
     }
-    
-    public AstBuilder builder = new AstBuilder();
 %}
 
 %union
@@ -113,6 +113,7 @@ op_6: op_6 And op_5 { $$ = new LogicOp("&&", $1, $3); }
 
 private Scanner _scanner;
 
-public Parser(Scanner scanner) : base(scanner) { 
+public Parser(Scanner scanner, AstBuilder builder) : base(scanner) { 
        _scanner = scanner;
+       this.builder = builder;
 }
