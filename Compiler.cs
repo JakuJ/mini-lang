@@ -74,25 +74,34 @@ namespace mini_lang
     {
         public VarType Type { get; }
 
-        public readonly string Op;
+        public enum OpType
+        {
+            BitwiseNot,
+            LogicalNot,
+            IntNegate,
+            Conv2Int,
+            Conv2Double
+        }
+
+        public readonly OpType Op;
         public readonly IEvaluable Rhs;
 
-        public UnaryOp(string op, IEvaluable rhs)
+        public UnaryOp(OpType op, IEvaluable rhs)
         {
             Op = op;
             Rhs = rhs;
 
             switch (Op)
             {
-                case "-":
+                case OpType.IntNegate:
                     Type = Rhs.Type;
                     if (Type == VarType.Bool) InvalidType();
                     break;
-                case "~":
+                case OpType.BitwiseNot:
                     Type = VarType.Integer;
                     if (Rhs.Type != Type) InvalidType();
                     break;
-                case "!":
+                case OpType.LogicalNot:
                     Type = VarType.Bool;
                     if (Rhs.Type != Type) InvalidType();
                     break;
@@ -102,8 +111,20 @@ namespace mini_lang
         public UnaryOp(VarType convertTo, IEvaluable rhs)
         {
             Type = convertTo;
-            Op = convertTo == VarType.Double ? "(double)" : "(int)";
             Rhs = rhs;
+
+            switch (convertTo)
+            {
+                case VarType.Integer:
+                    Op = OpType.Conv2Int;
+                    break;
+                case VarType.Double:
+                    Op = OpType.Conv2Double;
+                    break;
+                default:
+                    Compiler.Error($"Explicit conversion to {convertTo} not supported");
+                    break;
+            }
         }
 
         private void InvalidType() => Compiler.Error($"Invalid operand type: {Op} {Rhs.Type}");
@@ -595,20 +616,20 @@ namespace mini_lang
 
             switch (unaryOp.Op)
             {
-                case "(double)":
-                    EmitConversion(VarType.Double);
-                    break;
-                case "(int)":
-                    EmitConversion(VarType.Integer);
-                    break;
-                case "-":
-                    EmitLine("neg");
-                    break;
-                case "~":
+                case UnaryOp.OpType.BitwiseNot:
                     EmitLine("not");
                     break;
-                case "!":
+                case UnaryOp.OpType.LogicalNot:
                     EmitLine("ldc.i4.0\nceq");
+                    break;
+                case UnaryOp.OpType.IntNegate:
+                    EmitLine("neg");
+                    break;
+                case UnaryOp.OpType.Conv2Int:
+                    EmitConversion(VarType.Integer);
+                    break;
+                case UnaryOp.OpType.Conv2Double:
+                    EmitConversion(VarType.Double);
                     break;
             }
         }
