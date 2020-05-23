@@ -8,9 +8,9 @@ program {
     write a; write " ";
  
     write 1 == 2; write " ";   
-    write 5.0 == 5; write " ";
-    write 0 == 0.0; write " ";
-    write 5 == 5; write " ";   
+    write 5.0 <= 5; write " ";
+    write 0 >= 0.0; write " ";
+    write 5 == 5; write " ";
     
     double z1; double z2;
     z1 = 1.0;

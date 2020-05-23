@@ -97,6 +97,7 @@ namespace UnitTests
                     ("bit_ops.mini", "15\n40.000000\n0\n3\n"),
                     ("comp_ops.mini", "True False False False True True True True True"),
                     ("logic_ops.mini", "True True False True False"),
+                    ("unary.mini", "-1 5 False True -2 1 3.560000 8.000000 0.000000 1.000000 5 1 3 1 0")
                 };
 
                 foreach ((string path, string expected) in cases)

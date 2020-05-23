@@ -46,6 +46,7 @@ namespace UnitTests
                     ("bit_ops.mini", 5),
                     ("comp_ops.mini", 4),
                     ("logic_ops.mini", 4),
+                    ("unary.mini", 5),
                 };
 
                 foreach ((string path, int expected) in cases)

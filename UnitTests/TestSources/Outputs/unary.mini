@@ -1,0 +1,19 @@
+program {
+    write -1; write " ";        // -1
+    write ----5; write " ";     // 5
+    write !true; write " ";     // False
+    write !!true; write " ";    // True
+    write ~1; write " ";        // -2
+    write ~-2; write " ";       // 1
+    
+    write (double) 3.56; write " ";
+    write (double) 8; write " ";
+    write (double) false; write " ";
+    write (double) true; write " ";
+    
+    write (int) 5; write " ";
+    write (int) 1.4; write " ";
+    write (int) 3.89; write " ";
+    write (int) true; write " ";
+    write (int) false;
+}

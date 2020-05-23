@@ -77,10 +77,10 @@ value_0: Ident { $$ = builder.CreateIdentifier($1); }
        | LitDouble 
        | LitBool ;
 
-op_1: Minus op_1
-    | BitNot op_1
-    | Not op_1
-    | LParen Type RParen op_1 // explicit conversion
+op_1: Minus op_1 { $$ = new UnaryOp("-", $2); }
+    | BitNot op_1 { $$ = new UnaryOp("~", $2); }
+    | Not op_1 { $$ = new UnaryOp("!", $2); }
+    | LParen Type RParen op_1 { $$ = new UnaryOp($2, $4); } // explicit conversion
     | LParen op_6 RParen { $$ = $2; } // parentheses
     | value_0
     ;

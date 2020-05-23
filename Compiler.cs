@@ -46,23 +46,6 @@ namespace mini_lang
         }
     }
 
-    public class Declaration : INode
-    {
-        public readonly Identifier Identifier;
-        public readonly VarType Type;
-
-        public Declaration(VarType vType, Identifier identifier)
-        {
-            Type = vType;
-            Identifier = identifier;
-        }
-
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitDeclaration(this);
-        }
-    }
-
     public class Constant : IEvaluable
     {
         public readonly string Value;
@@ -81,6 +64,50 @@ namespace mini_lang
     }
 
     #region Operators
+
+    public class UnaryOp : IEvaluable
+    {
+        public VarType Type { get; }
+
+        public readonly string Op;
+        public readonly IEvaluable Rhs;
+
+        public UnaryOp(string op, IEvaluable rhs)
+        {
+            Op = op;
+            Rhs = rhs;
+
+            switch (Op)
+            {
+                case "-":
+                    Type = Rhs.Type;
+                    if (Type == VarType.Bool) InvalidType();
+                    break;
+                case "~":
+                    Type = VarType.Integer;
+                    if (Rhs.Type != Type) InvalidType();
+                    break;
+                case "!":
+                    Type = VarType.Bool;
+                    if (Rhs.Type != Type) InvalidType();
+                    break;
+            }
+        }
+
+        public UnaryOp(VarType convertTo, IEvaluable rhs)
+        {
+            Type = convertTo;
+            Op = convertTo == VarType.Double ? "(double)" : "(int)";
+            Rhs = rhs;
+        }
+
+        private void InvalidType() => Compiler.Error($"Invalid operand type: {Op} {Rhs.Type}");
+
+        public void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitUnaryOp(this);
+        }
+    }
 
     public abstract class BinOp : IEvaluable
     {
@@ -203,6 +230,25 @@ namespace mini_lang
 
     #endregion
 
+    #region Statements
+
+    public class Declaration : INode
+    {
+        public readonly Identifier Identifier;
+        public readonly VarType Type;
+
+        public Declaration(VarType vType, Identifier identifier)
+        {
+            Type = vType;
+            Identifier = identifier;
+        }
+
+        public void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitDeclaration(this);
+        }
+    }
+
     public class Assignment : INode
     {
         public readonly Identifier Lhs;
@@ -214,21 +260,13 @@ namespace mini_lang
             Lhs = identifier;
             Rhs = rhs;
 
-            try
+            if (Lhs.Type == VarType.Double && Rhs.Type == VarType.Integer)
             {
-                if (Lhs.Type == VarType.Double && Rhs.Type == VarType.Integer)
-                {
-                    Conversion = true;
-                }
-                else if (Lhs.Type != Rhs.Type)
-                {
-                    Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
-                }
+                Conversion = true;
             }
-            catch (CompilerException)
+            else if (Lhs.Type != Rhs.Type)
             {
-                // Couldn't get type information - identifier was not declared
-                // This only ever happens in error recovery and is safe to ignore
+                Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
             }
         }
 
@@ -293,6 +331,8 @@ namespace mini_lang
 
     #endregion
 
+    #endregion
+
     #region Visitors
 
     public interface INodeVisitor
@@ -307,21 +347,18 @@ namespace mini_lang
         void VisitRead(Read read);
         void VisitReturn(Return ret);
 
-        // Operations
+        // Operators
         void VisitMathOp(MathOp mathOp);
         void VisitCompOp(CompOp compOp);
         void VisitLogicOp(LogicOp logicOp);
+        void VisitUnaryOp(UnaryOp unaryOp);
     }
-
-    #region Builders
 
     public class AstBuilder
     {
-        private Program _program;
+        public Program Program { get; private set; }
 
         private readonly Dictionary<string, VarType> _declared = new Dictionary<string, VarType>();
-
-        public static implicit operator Program(AstBuilder builder) => builder._program;
 
         public Identifier CreateIdentifier(string name)
         {
@@ -331,9 +368,9 @@ namespace mini_lang
             return new Identifier(name, VarType.Integer);
         }
 
-        public void AddProgram() => _program = new Program();
+        public void AddProgram() => Program = new Program();
 
-        private void Append(INode node) => _program.Instructions.Add(node);
+        private void Append(INode node) => Program.Instructions.Add(node);
 
         public void AddDeclaration(string name, VarType type)
         {
@@ -359,7 +396,7 @@ namespace mini_lang
         public void AddReturn() => Append(new Return());
     }
 
-    public class CilBuilder : INodeVisitor, IDisposable
+    public class CilBuilder : INodeVisitor
     {
         private readonly StreamWriter _sw;
 
@@ -374,17 +411,13 @@ namespace mini_lang
             _sw = new StreamWriter(OutputFile);
         }
 
-        ~CilBuilder()
-        {
-            Dispose(false);
-        }
-
         public void VisitProgram(Program program)
         {
             EmitPrologue();
             program.Instructions.ForEach(x => x.Accept(this));
             EmitEpilogue();
             _sw.Flush();
+            _sw.Close();
         }
 
         public void VisitIdentifier(Identifier identifier) => EmitLine($"ldloc {identifier.Name}");
@@ -437,14 +470,9 @@ namespace mini_lang
                 case VarType.Double:
                     EmitLine("conv.r8");
                     break;
+                case VarType.Bool: // TODO: Most likely unused
                 case VarType.Integer:
                     EmitLine("conv.i4");
-                    break;
-                case VarType.Bool:
-                    EmitLine("conv.i4");
-                    break;
-                default:
-                    Compiler.Error($"Conversion to type {targetType} unknown"); // TODO - this should never throw
                     break;
             }
         }
@@ -581,6 +609,30 @@ namespace mini_lang
             EmitLine($"{label}:");
         }
 
+        public void VisitUnaryOp(UnaryOp unaryOp)
+        {
+            unaryOp.Rhs.Accept(this);
+
+            switch (unaryOp.Op)
+            {
+                case "(double)":
+                    EmitConversion(VarType.Double);
+                    break;
+                case "(int)":
+                    EmitConversion(VarType.Integer);
+                    break;
+                case "-":
+                    EmitLine("neg");
+                    break;
+                case "~":
+                    EmitLine("not");
+                    break;
+                case "!":
+                    EmitLine("ldc.i4.0\nceq");
+                    break;
+            }
+        }
+
         private void EmitLine(string code = null) => _sw.WriteLine(code);
 
         private void EmitPrologue()
@@ -607,26 +659,9 @@ namespace mini_lang
             EmitLine("EndMain: ret");
             EmitLine("}");
         }
-
-        private void Dispose(bool disposing)
-        {
-            if (disposing)
-            {
-                _sw?.Dispose();
-            }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
     }
 
-    #endregion
-
-    #region misc
-
+    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
     public class PrettyPrinter : INodeVisitor
     {
         public void VisitProgram(Program program)
@@ -651,7 +686,7 @@ namespace mini_lang
 
         public void VisitWrite(Write write)
         {
-            Console.Write($"write ");
+            Console.Write("write ");
             write.Rhs.Accept(this);
             Console.WriteLine(";");
         }
@@ -659,6 +694,12 @@ namespace mini_lang
         public void VisitRead(Read read) => Console.WriteLine($"read {read.Target.Name}");
 
         public void VisitReturn(Return ret) => Console.WriteLine("return;");
+
+        public void VisitUnaryOp(UnaryOp unaryOp)
+        {
+            Console.Write(unaryOp.Op);
+            unaryOp.Rhs.Accept(this);
+        }
 
         private void VisitBinOp(BinOp binOp)
         {
@@ -676,7 +717,7 @@ namespace mini_lang
 
     #endregion
 
-    #endregion
+    #region Main
 
     public class CompilerException : Exception
     {
@@ -690,7 +731,8 @@ namespace mini_lang
         public delegate void ErrorLogger(string message, bool interrupt = false);
 
         /// <summary>
-        /// ThreadStatic prevents parallel unit tests from overwriting each other's delegate
+        /// ThreadStatic prevents parallel tests from overwriting each other's delegate,
+        /// and by doing so, messing with the error count for a given test
         /// </summary>
         [ThreadStatic] public static ErrorLogger Error;
 
@@ -707,12 +749,17 @@ namespace mini_lang
 
             Error = (message, interrupt) =>
             {
-                // Hack - make use of the built-in line tracking in the scanner
+                // Hack (or is it?): make use of line tracking in the scanner
                 Console.Error.WriteLine($"{message} on line {scanner.lineNumber}");
+
+                // This is safe since we're modifying a static closure using a thread-static delegate
+                // IDE-specific warning suppression below
+                // ReSharper disable once AccessToModifiedClosure
                 errors++;
-                if (interrupt)
+
+                if (interrupt) // TODO: Maybe unused
                 {
-                    throw new CompilerException("Irrecoverable state");
+                    throw new CompilerException("Fatal error, cannot analyze further");
                 }
             };
 
@@ -720,13 +767,16 @@ namespace mini_lang
             {
                 parser.Parse();
             }
-            catch (CompilerException)
+            catch (CompilerException e)
             {
+                Console.Error.WriteLine(e.Message);
+                Console.Error.WriteLine($"{errors} errors found"); // TODO: Same thing as in Main because of early exit
+                Environment.Exit(1);
             }
 
             errors += scanner.Errors;
 
-            return (builder, errors);
+            return (builder.Program, errors);
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
@@ -761,4 +811,6 @@ namespace mini_lang
             return 0;
         }
     }
+
+    #endregion
 }
