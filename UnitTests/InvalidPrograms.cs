@@ -1,6 +1,5 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using mini_lang;
 using NUnit.Framework;
@@ -8,14 +7,9 @@ using NUnit.Framework;
 namespace UnitTests
 {
     [TestFixture]
+    [Parallelizable]
     public class InvalidPrograms
     {
-        [SetUp]
-        public void Setup()
-        {
-            Declaration.Declared = new Dictionary<string, VarType>();
-        }
-
         private static int CompilationErrors(string file)
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, $"TestSources/Invalid/{file}");

@@ -32,29 +32,12 @@ namespace mini_lang
     public class Identifier : IEvaluable
     {
         public readonly string Name;
+        public VarType Type { get; }
 
-        public VarType Type
+        public Identifier(string name, VarType type)
         {
-            get
-            {
-                if (!Declaration.Declared.ContainsKey(Name))
-                {
-                    Compiler.Error($"Variable {Name} has not been declared", true);
-                }
-
-                return Declaration.Declared[Name];
-            }
-        }
-
-
-        public Identifier(string name)
-        {
-            if (!Declaration.Declared.ContainsKey(name))
-            {
-                Compiler.Error($"Variable {name} has not been declared");
-            }
-
             Name = name;
+            Type = type;
         }
 
         public void Accept(INodeVisitor visitor)
@@ -68,19 +51,10 @@ namespace mini_lang
         public readonly Identifier Identifier;
         public readonly VarType Type;
 
-        public static Dictionary<string, VarType> Declared = new Dictionary<string, VarType>();
-
-        public Declaration(VarType vType, string name)
+        public Declaration(VarType vType, Identifier identifier)
         {
-            if (Declared.ContainsKey(name))
-            {
-                Compiler.Error($"Redeclaration of variable {name}");
-            }
-
             Type = vType;
-
-            Declared[name] = Type; // Do not raise an "undeclared variable" exception in Identifier
-            Identifier = new Identifier(name);
+            Identifier = identifier;
         }
 
         public void Accept(INodeVisitor visitor)
@@ -237,9 +211,9 @@ namespace mini_lang
         public readonly IEvaluable Rhs;
         public readonly bool Conversion;
 
-        public Assignment(string name, IEvaluable rhs)
+        public Assignment(Identifier identifier, IEvaluable rhs)
         {
-            Lhs = new Identifier(name);
+            Lhs = identifier;
             Rhs = rhs;
 
             try
@@ -347,21 +321,42 @@ namespace mini_lang
     {
         private Program _program;
 
-        private static Dictionary<string, VarType> _declared = new Dictionary<string, VarType>();
+        private readonly Dictionary<string, VarType> _declared = new Dictionary<string, VarType>();
 
         public static implicit operator Program(AstBuilder builder) => builder._program;
+
+        public Identifier CreateIdentifier(string name)
+        {
+            if (_declared.ContainsKey(name)) return new Identifier(name, _declared[name]);
+
+            Compiler.Error($"Variable {name} has not been declared, assuming Integer type");
+            return new Identifier(name, VarType.Integer);
+        }
 
         public void AddProgram() => _program = new Program();
 
         private void Append(INode node) => _program.Instructions.Add(node);
 
-        public void AddDeclaration(string name, VarType type) => Append(new Declaration(type, name));
+        public void AddDeclaration(string name, VarType type)
+        {
+            if (_declared.ContainsKey(name))
+            {
+                Compiler.Error($"Redeclaration of variable {name}");
+            }
+            else
+            {
+                // Declare a new Identifier
+                _declared[name] = type;
+                Append(new Declaration(type, CreateIdentifier(name)));
+            }
+        }
 
-        public void AddAssignment(string name, IEvaluable value) => Append(new Assignment(name, value));
+        public void AddAssignment(string name, IEvaluable value) =>
+            Append(new Assignment(CreateIdentifier(name), value));
 
         public void AddWrite(IEvaluable node) => Append(new Write(node));
 
-        public void AddRead(string name) => Append(new Read(new Identifier(name)));
+        public void AddRead(string name) => Append(new Read(CreateIdentifier(name)));
 
         public void AddReturn() => Append(new Return());
     }

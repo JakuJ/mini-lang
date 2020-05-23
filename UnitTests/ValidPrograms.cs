@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using mini_lang;
 using NUnit.Framework;
@@ -7,18 +6,13 @@ using NUnit.Framework;
 namespace UnitTests
 {
     [TestFixture]
+    [Parallelizable]
     public class ValidPrograms
     {
         private static (Program, int) RunCompiler(string file)
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, $"TestSources/Valid/{file}");
             return Compiler.Compile(path);
-        }
-
-        [SetUp]
-        public void Setup()
-        {
-            Declaration.Declared = new Dictionary<string, VarType>();
         }
 
         [TestCaseSource(typeof(Data), nameof(Data.AllPrograms))]

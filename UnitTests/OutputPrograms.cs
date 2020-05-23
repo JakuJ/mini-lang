@@ -1,5 +1,4 @@
 ﻿using System.Collections;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using mini_lang;
@@ -8,18 +7,13 @@ using NUnit.Framework;
 namespace UnitTests
 {
     [TestFixture]
+    [Parallelizable]
     public class OutputPrograms
     {
         private static (Program, int) RunCompiler(string file)
         {
             string path = Path.Combine(TestContext.CurrentContext.TestDirectory, $"TestSources/Outputs/{file}");
             return Compiler.Compile(path);
-        }
-
-        [SetUp]
-        public void Setup()
-        {
-            Declaration.Declared = new Dictionary<string, VarType>();
         }
 
         [TestCaseSource(typeof(Outputs), nameof(Outputs.Sources))]
@@ -51,13 +45,15 @@ namespace UnitTests
                     {
                         FileName = "ilasm",
                         Arguments = ilPath,
-                        UseShellExecute = false, RedirectStandardOutput = true,
+                        UseShellExecute = false,
+                        RedirectStandardOutput = true,
                         CreateNoWindow = true
                     }
                 };
 
                 linkerProcess.Start();
                 linkerProcess.WaitForExit();
+                Assert.AreEqual(0, linkerProcess.ExitCode);
             });
 
             var output = "";
@@ -72,15 +68,15 @@ namespace UnitTests
                         Arguments = Path.ChangeExtension(ilPath, "exe"),
                         UseShellExecute = false,
                         RedirectStandardOutput = true,
+                        RedirectStandardError = true,
                         CreateNoWindow = true
                     }
                 };
 
                 monoProcess.Start();
-
                 output = monoProcess.StandardOutput.ReadToEnd();
-
                 monoProcess.WaitForExit();
+                Assert.AreEqual(0, monoProcess.ExitCode);
             });
 
             return output;

@@ -72,7 +72,7 @@ rhs: op_6 ; // constants, identifiers and arbitrary expressions
 
 // Operators
 
-value_0: Ident { $$ = new Identifier($1); }
+value_0: Ident { $$ = builder.CreateIdentifier($1); }
        | LitInt
        | LitDouble 
        | LitBool ;
