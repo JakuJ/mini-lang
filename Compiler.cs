@@ -126,7 +126,7 @@ namespace mini_lang
         public abstract void Accept(INodeVisitor visitor);
 
         protected static void InvalidType(string op, VarType type) =>
-            Compiler.Error($"Invalid type for operand {op}: {type}");
+            Compiler.Error($"Operand type {type} invalid for operator {op}");
     }
 
     public class MathOp : BinOp
@@ -136,16 +136,33 @@ namespace mini_lang
             if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
             {
                 InvalidType(Op, VarType.Bool);
+                Type = VarType.Bool; // Set something to allow for error recovery
             }
+            else if (op == "|" || op == "&") // Bit operators only accept Integers as operands
+            {
+                if (lhs.Type != VarType.Integer)
+                {
+                    InvalidType(Op, lhs.Type);
+                }
 
-            if (lhs.Type != rhs.Type)
+                if (rhs.Type != VarType.Integer)
+                {
+                    InvalidType(Op, rhs.Type);
+                }
+
+                Type = VarType.Integer;
+            }
+            else if (lhs.Type != rhs.Type) // Only + - * / and Integer or Double
             {
                 Conversion = true;
-                Type = rhs.Type == VarType.Double ? VarType.Double : lhs.Type;
-            }
-            else
-            {
-                Type = lhs.Type;
+                if (rhs.Type == VarType.Double || lhs.Type == VarType.Double)
+                {
+                    Type = VarType.Double; // One of the types is Double
+                }
+                else
+                {
+                    Type = lhs.Type; // Both types are the same
+                }
             }
         }
 
@@ -456,7 +473,9 @@ namespace mini_lang
                 {"+", "add"},
                 {"-", "sub"},
                 {"*", "mul"},
-                {"/", "div"}
+                {"/", "div"},
+                {"|", "or"},
+                {"&", "and"},
             };
 
             EmitLine(opToOpcode[mathOp.Op]);

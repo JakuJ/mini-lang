@@ -96,7 +96,9 @@ namespace UnitTests
                 (string, string)[] cases = new[]
                 {
                     ("task1.mini", "5\n123.456000\nTrue\n"),
-                    ("op3_op4.mini", "3\n-1\n2\n0.000000\n0.500000\n2.000000\n6\n-2.000000\n25.000000\n6\n6\n"),
+                    ("return.mini", "return"),
+                    ("math_ops.mini", "3\n-1\n2\n0.000000\n0.500000\n2.000000\n6\n-2.000000\n25.000000\n6\n6\n"),
+                    ("bit_ops.mini", "15\n40.000000\n0\n3\n"),
                 };
 
                 foreach ((string path, string expected) in cases)

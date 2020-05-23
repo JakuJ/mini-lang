@@ -1,0 +1,7 @@
+program {
+    write "return";
+    
+    return ;
+    
+    write "this should not be written out";
+}

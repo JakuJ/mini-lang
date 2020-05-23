@@ -47,7 +47,8 @@ namespace UnitTests
                     ("case.mini", 5),
                     ("string.mini", 5),
                     ("missing_arg.mini", 5),
-                    ("op3_op4.mini", 8),
+                    ("math_ops.mini", 7),
+                    ("bit_ops.mini", 6),
                 };
 
                 foreach ((string path, int expected) in cases)

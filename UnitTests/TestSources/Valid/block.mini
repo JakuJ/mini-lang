@@ -5,6 +5,6 @@ program {
             read d;
         }
     }
-    
+    {} {} {{}}
     write d;
 }

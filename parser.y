@@ -85,8 +85,8 @@ op_1: Minus op_1
     | value_0
     ;
 
-op_2: op_2 BitAnd op_1
-    | op_2 BitOr op_1
+op_2: op_2 BitAnd op_1 { $$ = new MathOp("&", $1, $3); }
+    | op_2 BitOr op_1 { $$ = new MathOp("|", $1, $3); }
     | op_1 ;
 
 op_3: op_3 Mult op_2 { $$ = new MathOp("*", $1, $3); }
