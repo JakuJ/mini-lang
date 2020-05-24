@@ -37,6 +37,8 @@ LogicOr     "|"{2}
 "read"          { return (int)Tokens.Read; }
 "return"        { return (int)Tokens.Return; }
 "while"         { return (int)Tokens.While; }
+"if"            { return (int)Tokens.If; }
+"else"          { return (int)Tokens.Else; }
 
 "=="            { return (int)Tokens.Eq; }
 "="             { return (int)Tokens.Assign; }

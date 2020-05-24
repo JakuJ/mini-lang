@@ -5,6 +5,7 @@
 
 %{  
     private AstBuilder builder;
+    public Program Program { get; private set; }
     
     private void ParseError(string message)
     {
@@ -16,8 +17,10 @@
 %union
 {
 public string str;
-public IEvaluable eval;
 public VarType type;
+public INode node;
+public IEvaluable eval;
+public List<INode> list;
 }
 
 %token Program If Else While Read Write Return
@@ -28,42 +31,46 @@ public VarType type;
 %token <str> String Ident
 %token <eval> LitInt LitDouble LitBool
 
+%type <node> block statement while oneliner declaration assignment write read
+
 %type <eval> rhs value_0 writable
 %type <eval> op_1 op_2 op_3 op_4 op_5 op_6
 
+%type <list> statements
 %%
 
-start: Program { builder.AddProgram(); } block ;
+start: Program block { Program = new Program($2); } ;
 
-statements: statements statement
-          | ;
+block: LBrace statements RBrace { $$ = new Block($2); };
+
+statements: statements statement { $1.Add($2); $$ = $1; }
+          | { $$ = new List<INode>(); } 
+          ; 
 
 statement: block
-         | whileStmnt
+         | while
          | oneliner Semicolon
          | error Semicolon { yyerrok(); }
          | error EOF
          | error { yyerrok(); }
          ;
-         
-block: LBrace statements RBrace ;
 
-whileStmnt: While LParen rhs RParen {{ builder.StartWhile($3); }} statement {{ builder.EndWhile(); }} ;
+while: While LParen rhs RParen statement { $$ = new While($3, $5); } ;
          
 oneliner: declaration
         | assignment
         | write
         | read
-        | Return { builder.AddReturn(); }
+        | Return { $$ = new Return(); }
         ;
 
-declaration: Type Ident { builder.AddDeclaration($2, $1); } ;
+declaration: Type Ident { $$ = builder.CreateDeclaration($2, $1); } ;
 
-read: Read Ident { builder.AddRead($2); } ;
+read: Read Ident { $$ = new Read(builder.CreateIdentifier($2)); } ;
 
-assignment: Ident Assign rhs { builder.AddAssignment($1, $3); } ;
+assignment: Ident Assign rhs { $$ = new Assignment(builder.CreateIdentifier($1), $3); } ;
 
-write: Write writable { builder.AddWrite($2); } ;
+write: Write writable { $$ = new Write($2); } ;
 
 writable: rhs
         | String { $$ = new Constant($1, VarType.String); }

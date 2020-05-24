@@ -80,14 +80,16 @@ namespace mini_lang
         VarType Type { get; }
     }
 
-    public interface IScope : INode
-    {
-        List<INode> Statements { get; }
-    }
-
     #endregion
 
     #region AST
+
+    public class Block : INode
+    {
+        public List<INode> Statements { get; }
+        public Block(List<INode> statements) => Statements = statements;
+        public void Accept(INodeVisitor visitor) => visitor.VisitBlock(this);
+    }
 
     public class Identifier : IEvaluable
     {
@@ -406,15 +408,15 @@ namespace mini_lang
         void INode.Accept(INodeVisitor visitor) => visitor.VisitReturn();
     }
 
-    public class While : IScope
+    public class While : INode
     {
         public readonly IEvaluable Condition;
-        public List<INode> Statements { get; }
+        public readonly INode Body;
 
-        public While(IEvaluable condition)
+        public While(IEvaluable condition, INode body)
         {
             Condition = condition;
-            Statements = new List<INode>();
+            Body = body;
 
             if (condition.Type != VarType.Bool)
             {
@@ -426,12 +428,29 @@ namespace mini_lang
         void INode.Accept(INodeVisitor visitor) => visitor.VisitWhile(this);
     }
 
-    public class Program : IScope
+    public class IfElse : INode
     {
-        public List<INode> Statements { get; }
+        public readonly IEvaluable Condition;
+        public readonly INode ThenBlock;
+        public readonly INode ElseBlock;
 
-        public Program() => Statements = new List<INode>();
+        public IfElse(IEvaluable condition, INode thenBlock, INode elseBlock)
+        {
+            Condition = condition;
+            ThenBlock = thenBlock;
+            ElseBlock = elseBlock;
+        }
 
+        public void Accept(INodeVisitor visitor)
+        {
+            visitor.VisitIfElse(this);
+        }
+    }
+
+    public class Program : INode
+    {
+        public Block MainBlock { get; }
+        public Program(INode mainBlock) => MainBlock = mainBlock as Block;
         public void Accept(INodeVisitor visitor) => visitor.VisitProgram(this);
     }
 
@@ -445,6 +464,7 @@ namespace mini_lang
     {
         // Statements
         void VisitProgram(Program program);
+        void VisitBlock(Block block);
         void VisitIdentifier(Identifier identifier);
         void VisitDeclaration(Declaration declaration);
         void VisitAssignment(Assignment assignment);
@@ -453,6 +473,7 @@ namespace mini_lang
         void VisitRead(Read read);
         void VisitReturn();
         void VisitWhile(While @while);
+        void VisitIfElse(IfElse ifElse);
 
         // Operators
         void VisitMathOp(MathOp mathOp);
@@ -463,14 +484,10 @@ namespace mini_lang
 
     public class AstBuilder
     {
-        private Stack<IScope> _scopes;
         private readonly Dictionary<string, VarType> _declared;
-
-        public IScope CurrentScope => _scopes.Peek();
 
         public AstBuilder()
         {
-            _scopes = new Stack<IScope>();
             _declared = new Dictionary<string, VarType>();
         }
 
@@ -482,56 +499,17 @@ namespace mini_lang
             return new Identifier(name, VarType.Integer);
         }
 
-        public void AddProgram() => _scopes.Push(new Program());
-
-        private void Append(INode node)
-        {
-            if (_scopes.Count == 0)
-            {
-                Compiler.Error($"No surrounding block to add a statement to.", true);
-            }
-            else
-            {
-                CurrentScope.Statements.Add(node);
-            }
-        }
-
-        public void AddDeclaration(string name, VarType type)
+        public Declaration CreateDeclaration(string name, VarType type)
         {
             if (_declared.ContainsKey(name))
             {
                 Compiler.Error($"Redeclaration of variable {name}");
+                return null;
             }
-            else
-            {
-                // Declare a new Identifier
-                _declared[name] = type;
-                Append(new Declaration(type, CreateIdentifier(name)));
-            }
-        }
 
-        public void AddAssignment(string name, IEvaluable value) =>
-            Append(new Assignment(CreateIdentifier(name), value));
-
-        public void AddWrite(IEvaluable node) => Append(new Write(node));
-
-        public void AddRead(string name) => Append(new Read(CreateIdentifier(name)));
-
-        public void AddReturn() => Append(new Return());
-
-        public void StartWhile(IEvaluable condition) => _scopes.Push(new While(condition));
-
-        public void EndWhile()
-        {
-            IScope scope = _scopes.Pop();
-            if (scope is While @while)
-            {
-                Append(@while);
-            }
-            else
-            {
-                Compiler.Error("Couldn't finish a while statement", true);
-            }
+            // Declare a new Identifier
+            _declared[name] = type;
+            return new Declaration(type, CreateIdentifier(name));
         }
     }
 
@@ -562,11 +540,13 @@ namespace mini_lang
         public void VisitProgram(Program program)
         {
             EmitPrologue();
-            program.Statements.ForEach(x => x.Accept(this));
+            program.MainBlock.Accept(this);
             EmitEpilogue();
             _sw.Flush();
             _sw.Close();
         }
+
+        public void VisitBlock(Block block) => block.Statements.ForEach(x => x.Accept(this));
 
         public void VisitIdentifier(Identifier identifier) => EmitLine($"ldloc {identifier.Name}");
 
@@ -686,15 +666,36 @@ namespace mini_lang
 
         public void VisitWhile(While @while)
         {
-            string startWhile = Label;
-            string endWhile = Label;
+            string startWhile = Label, endWhile = Label;
 
             EmitLine($"{startWhile}:");
             @while.Condition.Accept(this);
             EmitLine($"brfalse {endWhile}");
-            @while.Statements.ForEach(x => x.Accept(this));
+            @while.Body.Accept(this);
             EmitLine($"br {startWhile}");
             EmitLine($"{endWhile}:");
+        }
+
+        public void VisitIfElse(IfElse ifElse)
+        {
+            string elseLabel = Label;
+
+            ifElse.Condition.Accept(this);
+            EmitLine($"brfalse {elseLabel}");
+            ifElse.ThenBlock.Accept(this);
+
+            if (ifElse.ElseBlock != null)
+            {
+                string endLabel = Label;
+                EmitLine($"br {endLabel}");
+                EmitLine($"{elseLabel}:");
+                ifElse.ElseBlock.Accept(this);
+                EmitLine($"{endLabel}:");
+            }
+            else
+            {
+                EmitLine($"{elseLabel}:");
+            }
         }
 
         public void VisitMathOp(MathOp mathOp)
@@ -841,8 +842,14 @@ namespace mini_lang
     {
         public void VisitProgram(Program program)
         {
-            Console.WriteLine("program {");
-            program.Statements.ForEach(x => x.Accept(this));
+            Console.WriteLine("program");
+            program.MainBlock.Accept(this);
+        }
+
+        public void VisitBlock(Block block)
+        {
+            Console.WriteLine("{");
+            block.Statements.ForEach(x => x.Accept(this));
             Console.WriteLine("}");
         }
 
@@ -874,9 +881,22 @@ namespace mini_lang
         {
             Console.Write("while (");
             @while.Condition.Accept(this);
-            Console.WriteLine(") {");
-            @while.Statements.ForEach(x => x.Accept(this));
-            Console.WriteLine("}");
+            Console.Write(") ");
+            @while.Body.Accept(this);
+        }
+
+        public void VisitIfElse(IfElse ifElse)
+        {
+            Console.Write("if (");
+            @ifElse.Condition.Accept(this);
+            Console.Write(") ");
+            ifElse.ThenBlock.Accept(this);
+
+            if (ifElse.ElseBlock != null)
+            {
+                Console.Write("else ");
+                ifElse.ElseBlock.Accept(this);
+            }
         }
 
         public void VisitUnaryOp(UnaryOp unaryOp)
@@ -976,7 +996,7 @@ namespace mini_lang
             // Also count errors reported by the lexing and parsing classes
             errors += scanner.Errors;
 
-            return (builder.CurrentScope as Program, errors);
+            return (parser.Program, errors);
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
