@@ -31,7 +31,7 @@ public List<INode> list;
 %token <str> String Ident
 %token <eval> LitInt LitDouble LitBool
 
-%type <node> block statement while oneliner declaration assignment write read
+%type <node> block statement if while oneliner declaration assignment write read
 
 %type <eval> rhs value_0 writable
 %type <eval> op_1 op_2 op_3 op_4 op_5 op_6
@@ -49,6 +49,7 @@ statements: statements statement { $1.Add($2); $$ = $1; }
 
 statement: block
          | while
+         | if
          | oneliner Semicolon
          | error Semicolon { yyerrok(); }
          | error EOF
@@ -56,6 +57,10 @@ statement: block
          ;
 
 while: While LParen rhs RParen statement { $$ = new While($3, $5); } ;
+
+if: If LParen rhs RParen statement { $$ = new IfElse($3, $5); }
+  | If LParen rhs RParen statement Else statement { $$ = new IfElse($3, $5, $7); }
+  ;
          
 oneliner: declaration
         | assignment

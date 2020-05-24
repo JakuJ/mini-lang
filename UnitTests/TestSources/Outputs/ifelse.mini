@@ -1,0 +1,20 @@
+program {
+    int n;
+    int iters;
+    n = 7;
+    
+    while (n != 1)
+    {
+        write n;
+        write " ";
+        
+        if ( n & 1 == 1 ) // odd
+            n = 3 * n + 1;
+        else
+            n = n / 2;
+            
+         iters = iters + 1;
+    }
+    write "iters: ";
+    write iters;
+}

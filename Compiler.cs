@@ -26,8 +26,6 @@ namespace mini_lang
         /// only work if you assign the StringValue attribute to
         /// the items in your enum.
         /// </summary>
-        /// <param name="value"></param>
-        /// <returns></returns>
         public static string GetToken(this Enum value)
         {
             // Get the type
@@ -43,7 +41,7 @@ namespace mini_lang
                 return attribs.Length > 0 ? attribs[0].Token : null;
             }
 
-            return null;
+            return "< ?? >";
         }
     }
 
@@ -163,7 +161,7 @@ namespace mini_lang
                     break;
                 case OpType.Conv2Int:
                 case OpType.Conv2Double:
-                    Compiler.Error($"Invalid OpType for this constructor.");
+                    Compiler.Error($".");
                     break;
             }
         }
@@ -434,17 +432,14 @@ namespace mini_lang
         public readonly INode ThenBlock;
         public readonly INode ElseBlock;
 
-        public IfElse(IEvaluable condition, INode thenBlock, INode elseBlock)
+        public IfElse(IEvaluable condition, INode thenBlock, INode elseBlock = null)
         {
             Condition = condition;
             ThenBlock = thenBlock;
             ElseBlock = elseBlock;
         }
 
-        public void Accept(INodeVisitor visitor)
-        {
-            visitor.VisitIfElse(this);
-        }
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitIfElse(this);
     }
 
     public class Program : INode

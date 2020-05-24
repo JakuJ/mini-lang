@@ -48,6 +48,7 @@ namespace UnitTests
                     ("logic_ops.mini", 4),
                     ("unary.mini", 5),
                     ("while.mini", 4),
+                    ("ifelse.mini", 3),
                 };
 
                 foreach ((string path, int expected) in cases)

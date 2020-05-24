@@ -99,6 +99,7 @@ namespace UnitTests
                     ("logic_ops.mini", "True True False True False"),
                     ("unary.mini", "-1 5 False True -2 1 3.560000 8.000000 0.000000 1.000000 5 1 3 1 0"),
                     ("while.mini", "40320 1 2 3 4 5 9 -2 0"),
+                    ("ifelse.mini", "7 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 iters: 16"),
                 };
 
                 foreach ((string path, string expected) in cases)
