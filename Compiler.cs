@@ -1,10 +1,54 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using GardensPoint;
 
 namespace mini_lang
 {
+    #region Extensions
+
+    /// <inheritdoc />
+    /// <summary>
+    /// This attribute is used to represent a mini-language token string for a value in an enum.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Field)]
+    public class TokenAttribute : Attribute
+    {
+        public string Token { get; }
+        public TokenAttribute(string value) => Token = value;
+    }
+
+    public static class Extensions
+    {
+        /// <summary>
+        /// Will get the string value for a given enums value, this will
+        /// only work if you assign the StringValue attribute to
+        /// the items in your enum.
+        /// </summary>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static string GetToken(this Enum value)
+        {
+            // Get the type
+            Type type = value.GetType();
+
+            // Get FieldInfo for this type
+            FieldInfo fieldInfo = type.GetField(value.ToString());
+
+            // Get the StringValue attributes
+            if (fieldInfo.GetCustomAttributes(typeof(TokenAttribute), false) is TokenAttribute[] attribs)
+            {
+                // Return the first if there was a match.
+                return attribs.Length > 0 ? attribs[0].Token : null;
+            }
+
+            return null;
+        }
+    }
+
+    #endregion
+
     #region Common
 
     /// <summary>
@@ -12,10 +56,10 @@ namespace mini_lang
     /// </summary>
     public enum VarType
     {
-        Integer,
-        Double,
-        Bool,
-        String
+        [Token("int")] Integer,
+        [Token("double")] Double,
+        [Token("bool")] Bool,
+        [Token("string")] String
     }
 
     /// <summary>
@@ -76,11 +120,11 @@ namespace mini_lang
 
         public enum OpType
         {
-            BitwiseNot,
-            LogicalNot,
-            IntNegate,
-            Conv2Int,
-            Conv2Double
+            [Token("~")] BitwiseNot,
+            [Token("!")] LogicalNot,
+            [Token("-")] IntNegate,
+            [Token("(int)")] Conv2Int,
+            [Token("(double)")] Conv2Double
         }
 
         public readonly OpType Op;
@@ -122,12 +166,12 @@ namespace mini_lang
                     Op = OpType.Conv2Double;
                     break;
                 default:
-                    Compiler.Error($"Explicit conversion to {convertTo} not supported");
+                    Compiler.Error($"Explicit conversion to {convertTo.GetToken()} not supported");
                     break;
             }
         }
 
-        private void InvalidType() => Compiler.Error($"Invalid operand type: {Op} {Rhs.Type}");
+        private void InvalidType() => Compiler.Error($"Invalid operand type: {Op.GetToken()}{Rhs.Type.GetToken()}");
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitUnaryOp(this);
     }
@@ -139,29 +183,39 @@ namespace mini_lang
     public abstract class BinOp : IEvaluable
     {
         public VarType Type { get; protected set; }
-
-        public readonly string Op;
         public readonly IEvaluable Lhs, Rhs;
 
-        protected BinOp(string op, IEvaluable lhs, IEvaluable rhs)
+        protected BinOp(IEvaluable lhs, IEvaluable rhs)
         {
             Lhs = lhs;
             Rhs = rhs;
-            Op = op;
         }
 
         public abstract void Accept(INodeVisitor visitor);
 
-        protected void InvalidType() => Compiler.Error($"Invalid operand types: {Lhs.Type} {Op} {Rhs.Type}");
+        protected void InvalidType(string op) =>
+            Compiler.Error($"Invalid operand types: {Lhs.Type.GetToken()} {op} {Rhs.Type.GetToken()}");
     }
 
     public class MathOp : BinOp
     {
+        public enum OpType
+        {
+            [Token("+")] Add,
+            [Token("-")] Sub,
+            [Token("*")] Mult,
+            [Token("/")] Div,
+            [Token("&")] BitAnd,
+            [Token("|")] BitOr,
+        }
+
+        public readonly OpType Op;
         public bool Conversion { get; }
 
-        public MathOp(string op, IEvaluable lhs, IEvaluable rhs) : base(op, lhs, rhs)
+        public MathOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
         {
-            if (op == "|" || op == "&") // Bit operators only accept Integers as operands
+            Op = op;
+            if (op == OpType.BitOr || op == OpType.BitAnd) // Bit operators only accept Integers as operands
             {
                 if (lhs.Type != VarType.Integer || rhs.Type != VarType.Integer)
                 {
@@ -189,18 +243,31 @@ namespace mini_lang
             }
         }
 
+        private void InvalidType() => InvalidType(Op.GetToken());
         public override void Accept(INodeVisitor visitor) => visitor.VisitMathOp(this);
     }
 
     public class CompOp : BinOp
     {
+        public enum OpType
+        {
+            [Token("==")] Eq,
+            [Token("!=")] Neq,
+            [Token(">")] Gt,
+            [Token(">=")] Gte,
+            [Token("<")] Lt,
+            [Token("<=")] Lte,
+        }
+
+        public readonly OpType Op;
         public VarType? CastTo { get; }
 
-        public CompOp(string op, IEvaluable lhs, IEvaluable rhs) : base(op, lhs, rhs)
+        public CompOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
         {
+            Op = op;
             Type = VarType.Bool;
 
-            if (Op == "==" || Op == "!=")
+            if (op == OpType.Eq || op == OpType.Neq)
             {
                 if (lhs.Type == rhs.Type) return;
                 if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
@@ -225,13 +292,23 @@ namespace mini_lang
             }
         }
 
+        private void InvalidType() => InvalidType(Op.GetToken());
         public override void Accept(INodeVisitor visitor) => visitor.VisitCompOp(this);
     }
 
     public class LogicOp : BinOp
     {
-        public LogicOp(string op, IEvaluable lhs, IEvaluable rhs) : base(op, lhs, rhs)
+        public enum OpType
         {
+            [Token("&&")] And,
+            [Token("||")] Or
+        }
+
+        public readonly OpType Op;
+
+        public LogicOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
+        {
+            Op = op;
             Type = VarType.Bool;
 
             if (Lhs.Type != VarType.Bool || Rhs.Type != VarType.Bool)
@@ -240,6 +317,7 @@ namespace mini_lang
             }
         }
 
+        private void InvalidType() => InvalidType(Op.GetToken());
         public override void Accept(INodeVisitor visitor) => visitor.VisitLogicOp(this);
     }
 
@@ -278,7 +356,8 @@ namespace mini_lang
             }
             else if (Lhs.Type != Rhs.Type)
             {
-                Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
+                Compiler.Error(
+                    $"Cannot assign value of type {Rhs.Type.GetToken()} to a variable of type {Lhs.Type.GetToken()}");
             }
         }
 
@@ -305,7 +384,7 @@ namespace mini_lang
 
     public class Return : INode
     {
-        void INode.Accept(INodeVisitor visitor) => visitor.VisitReturn(this);
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitReturn();
     }
 
     public class Program : INode
@@ -333,7 +412,7 @@ namespace mini_lang
         void VisitConstant(Constant constant);
         void VisitWrite(Write write);
         void VisitRead(Read read);
-        void VisitReturn(Return ret);
+        void VisitReturn();
 
         // Operators
         void VisitMathOp(MathOp mathOp);
@@ -354,7 +433,7 @@ namespace mini_lang
         {
             if (_declared.ContainsKey(name)) return new Identifier(name, _declared[name]);
 
-            Compiler.Error($"Variable {name} has not been declared, assuming Integer type");
+            Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer.GetToken()}");
             return new Identifier(name, VarType.Integer);
         }
 
@@ -539,7 +618,7 @@ namespace mini_lang
             EmitLine("pop");
         }
 
-        public void VisitReturn(Return ret) => EmitLine("leave EndMain");
+        public void VisitReturn() => EmitLine("leave EndMain");
 
         public void VisitMathOp(MathOp mathOp)
         {
@@ -557,17 +636,27 @@ namespace mini_lang
                 EmitConversion(mathOp.Type);
             }
 
-            var opToOpcode = new Dictionary<string, string>()
+            switch (mathOp.Op)
             {
-                {"+", "add"},
-                {"-", "sub"},
-                {"*", "mul"},
-                {"/", "div"},
-                {"|", "or"},
-                {"&", "and"},
-            };
-
-            EmitLine(opToOpcode[mathOp.Op]);
+                case MathOp.OpType.Add:
+                    EmitLine("add");
+                    break;
+                case MathOp.OpType.Sub:
+                    EmitLine("sub");
+                    break;
+                case MathOp.OpType.Mult:
+                    EmitLine("mul");
+                    break;
+                case MathOp.OpType.Div:
+                    EmitLine("div");
+                    break;
+                case MathOp.OpType.BitAnd:
+                    EmitLine("and");
+                    break;
+                case MathOp.OpType.BitOr:
+                    EmitLine("or");
+                    break;
+            }
         }
 
         public void VisitCompOp(CompOp compOp)
@@ -586,17 +675,27 @@ namespace mini_lang
                 EmitConversion(type2);
             }
 
-            var opToOpcode = new Dictionary<string, string>()
+            switch (compOp.Op)
             {
-                {"==", "ceq"},
-                {"!=", "ceq\nldc.i4.0\nceq"}, // not ==
-                {"<", "clt"},
-                {"<=", "cgt\nldc.i4.0\nceq"}, // not >
-                {">", "cgt"},
-                {">=", "clt\nldc.i4.0\nceq"}, // not <
-            };
-
-            EmitLine(opToOpcode[compOp.Op]);
+                case CompOp.OpType.Eq:
+                    EmitLine("ceq");
+                    break;
+                case CompOp.OpType.Neq:
+                    EmitLine("ceq\nldc.i4.0\nceq");
+                    break;
+                case CompOp.OpType.Gt:
+                    EmitLine("cgt");
+                    break;
+                case CompOp.OpType.Gte:
+                    EmitLine("clt\nldc.i4.0\nceq");
+                    break;
+                case CompOp.OpType.Lt:
+                    EmitLine("clt");
+                    break;
+                case CompOp.OpType.Lte:
+                    EmitLine("cgt\nldc.i4.0\nceq");
+                    break;
+            }
         }
 
         public void VisitLogicOp(LogicOp logicOp)
@@ -604,7 +703,7 @@ namespace mini_lang
             string label = Label;
             logicOp.Lhs.Accept(this);
             EmitLine("dup");
-            EmitLine(logicOp.Op == "&&" ? $"brfalse {label}" : $"brtrue {label}");
+            EmitLine(logicOp.Op == LogicOp.OpType.And ? $"brfalse {label}" : $"brtrue {label}");
             EmitLine("pop");
             logicOp.Rhs.Accept(this);
             EmitLine($"{label}:");
@@ -692,26 +791,24 @@ namespace mini_lang
 
         public void VisitRead(Read read) => Console.WriteLine($"read {read.Target.Name}");
 
-        public void VisitReturn(Return ret) => Console.WriteLine("return;");
+        public void VisitReturn() => Console.WriteLine("return;");
 
         public void VisitUnaryOp(UnaryOp unaryOp)
         {
-            Console.Write(unaryOp.Op);
+            Console.Write(unaryOp.Op.GetToken());
             unaryOp.Rhs.Accept(this);
         }
 
-        private void VisitBinOp(BinOp binOp)
+        private void VisitBinOp(BinOp binOp, string opcode)
         {
             binOp.Lhs.Accept(this);
-            Console.Write($" {binOp.Op} ");
+            Console.Write($" {opcode} ");
             binOp.Rhs.Accept(this);
         }
 
-        public void VisitMathOp(MathOp mathOp) => VisitBinOp(mathOp);
-
-        public void VisitCompOp(CompOp compOp) => VisitBinOp(compOp);
-
-        public void VisitLogicOp(LogicOp logicOp) => VisitBinOp(logicOp);
+        public void VisitMathOp(MathOp mathOp) => VisitBinOp(mathOp, mathOp.Op.GetToken());
+        public void VisitCompOp(CompOp compOp) => VisitBinOp(compOp, compOp.Op.GetToken());
+        public void VisitLogicOp(LogicOp logicOp) => VisitBinOp(logicOp, logicOp.Op.GetToken());
     }
 
     #endregion

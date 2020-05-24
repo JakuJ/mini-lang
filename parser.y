@@ -84,28 +84,28 @@ op_1: Minus op_1 { $$ = new UnaryOp(UnaryOp.OpType.IntNegate, $2); }
     | value_0
     ;
 
-op_2: op_2 BitAnd op_1 { $$ = new MathOp("&", $1, $3); }
-    | op_2 BitOr op_1 { $$ = new MathOp("|", $1, $3); }
+op_2: op_2 BitAnd op_1 { $$ = new MathOp(MathOp.OpType.BitAnd, $1, $3); }
+    | op_2 BitOr op_1 { $$ = new MathOp(MathOp.OpType.BitOr, $1, $3); }
     | op_1 ;
 
-op_3: op_3 Mult op_2 { $$ = new MathOp("*", $1, $3); }
-    | op_3 Div op_2 { $$ = new MathOp("/", $1, $3); }
+op_3: op_3 Mult op_2 { $$ = new MathOp(MathOp.OpType.Mult, $1, $3); }
+    | op_3 Div op_2 { $$ = new MathOp(MathOp.OpType.Div, $1, $3); }
     | op_2 ;
 
-op_4: op_4 Plus op_3 { $$ = new MathOp("+", $1, $3); }
-    | op_4 Minus op_3 { $$ = new MathOp("-", $1, $3); }
+op_4: op_4 Plus op_3 { $$ = new MathOp(MathOp.OpType.Add, $1, $3); }
+    | op_4 Minus op_3 { $$ = new MathOp(MathOp.OpType.Sub, $1, $3); }
     | op_3 ;
     
-op_5: op_5 Eq op_4 { $$ = new CompOp("==", $1, $3); }
-    | op_5 Neq op_4 { $$ = new CompOp("!=", $1, $3); }
-    | op_5 Gt op_4 { $$ = new CompOp(">", $1, $3); }
-    | op_5 Gte op_4 { $$ = new CompOp(">=", $1, $3); }
-    | op_5 Lt op_4 { $$ = new CompOp("<", $1, $3); }
-    | op_5 Lte op_4 { $$ = new CompOp("<=", $1, $3); }
+op_5: op_5 Eq op_4 { $$ = new CompOp(CompOp.OpType.Eq, $1, $3); }
+    | op_5 Neq op_4 { $$ = new CompOp(CompOp.OpType.Neq, $1, $3); }
+    | op_5 Gt op_4 { $$ = new CompOp(CompOp.OpType.Gt, $1, $3); }
+    | op_5 Gte op_4 { $$ = new CompOp(CompOp.OpType.Gte, $1, $3); }
+    | op_5 Lt op_4 { $$ = new CompOp(CompOp.OpType.Lt, $1, $3); }
+    | op_5 Lte op_4 { $$ = new CompOp(CompOp.OpType.Lte, $1, $3); }
     | op_4 ;
     
-op_6: op_6 And op_5 { $$ = new LogicOp("&&", $1, $3); }
-    | op_6 Or op_5 { $$ = new LogicOp("||", $1, $3); }
+op_6: op_6 And op_5 { $$ = new LogicOp(LogicOp.OpType.And, $1, $3); }
+    | op_6 Or op_5 { $$ = new LogicOp(LogicOp.OpType.Or, $1, $3); }
     | op_5 ;
 
 %%
