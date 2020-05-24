@@ -6,9 +6,9 @@ program {
     d = 123.456;
     b = true;
     write i;
-    write "\n";
+    write " ";
     write d;
-    write "\n";
+    write " ";
     write b;
-    write "\n";
+    write " ";
 }

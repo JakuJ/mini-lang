@@ -36,6 +36,7 @@ LogicOr     "|"{2}
 "write"         { return (int)Tokens.Write; }
 "read"          { return (int)Tokens.Read; }
 "return"        { return (int)Tokens.Return; }
+"while"         { return (int)Tokens.While; }
 
 "=="            { return (int)Tokens.Eq; }
 "="             { return (int)Tokens.Assign; }
@@ -58,9 +59,9 @@ LogicOr     "|"{2}
 "/"             { return (int)Tokens.Div; }
 "+"             { return (int)Tokens.Plus; }
 
-{Integer}       { yylval.node = new Constant(yytext, VarType.Integer); return (int)Tokens.LitInt; }
-{Real}          { yylval.node = new Constant(yytext, VarType.Double); return (int)Tokens.LitDouble; }
-{Bool}          { yylval.node = new Constant(yytext, VarType.Bool); return (int)Tokens.LitBool; }
+{Integer}       { yylval.eval = new Constant(yytext, VarType.Integer); return (int)Tokens.LitInt; }
+{Real}          { yylval.eval = new Constant(yytext, VarType.Double); return (int)Tokens.LitDouble; }
+{Bool}          { yylval.eval = new Constant(yytext, VarType.Bool); return (int)Tokens.LitBool; }
 {Ident}         { yylval.str = yytext; return (int)Tokens.Ident; }
 {String}        { yylval.str = yytext; return (int)Tokens.String; }
 "\n"            { lineNumber++; }

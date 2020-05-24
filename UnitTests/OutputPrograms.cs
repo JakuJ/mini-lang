@@ -89,15 +89,16 @@ namespace UnitTests
         {
             get
             {
-                (string, string)[] cases = new[]
+                (string, string)[] cases =
                 {
-                    ("task1.mini", "5\n123.456000\nTrue\n"),
+                    ("task1.mini", "5 123.456000 True "),
                     ("return.mini", "return"),
-                    ("math_ops.mini", "3\n-1\n2\n0.000000\n0.500000\n2.000000\n6\n-2.000000\n25.000000\n6\n6\n"),
-                    ("bit_ops.mini", "15\n40.000000\n0\n3\n"),
+                    ("math_ops.mini", "3 -1 2 0.000000 0.500000 2.000000 6 -2.000000 25.000000 6 6 "),
+                    ("bit_ops.mini", "15 40.000000 0 3 "),
                     ("comp_ops.mini", "True False False False True True True True True"),
                     ("logic_ops.mini", "True True False True False"),
-                    ("unary.mini", "-1 5 False True -2 1 3.560000 8.000000 0.000000 1.000000 5 1 3 1 0")
+                    ("unary.mini", "-1 5 False True -2 1 3.560000 8.000000 0.000000 1.000000 5 1 3 1 0"),
+                    ("while.mini", "40320 1 2 3 4 5 9 -2 0"),
                 };
 
                 foreach ((string path, string expected) in cases)

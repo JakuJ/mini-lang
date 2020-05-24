@@ -1,19 +1,19 @@
 program {
     int x;
     x = 9 | 6;
-    write x; write "\n";
+    write x; write " ";
     
     double k;
     k = 105 & 184;
     
-    write k; write "\n";
+    write k; write " ";
     
     // Priority over + - * /
     
     int g;
     g = 1 + 2 | 3 - 4;
-    write g; write "\n";
+    write g; write " ";
     
     g = 1 | 2 + 8 & 4;
-    write g; write "\n";
+    write g; write " ";
 }

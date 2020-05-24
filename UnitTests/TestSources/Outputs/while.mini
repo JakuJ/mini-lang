@@ -1,0 +1,50 @@
+program {
+    int n;
+    int k;
+    n = 1;
+    k = 8;
+    
+    while ( k >= 1 ) {
+        n = n * k;
+        k = k - 1;
+    }
+    
+    write n; // 8! = 40320
+    write " ";
+    
+    n = 0;
+    while (n < 5) {
+        n = n + 1;
+        write n; write " ";
+    }
+    
+    int i;
+    int j;
+    int squares;
+    
+    while (i < 3) {
+        while (j < 3) {
+           squares = squares + i * j;
+           j = j + 1;
+        }
+        i = i + 1;
+        j = 0;
+    }
+    
+    write squares; // 9
+    write " ";
+    
+    i = 3;
+    j = 5;
+    
+    while (i > 0)
+        while ( j > 0 )
+        {
+            i = i - 1;
+            j = j - 1;
+        }
+        
+    write i;
+    write " ";
+    write j;
+}

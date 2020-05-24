@@ -1,0 +1,20 @@
+program {
+    
+    int n;
+    
+    while (false) {}
+    while (n < 10) { n = n + 1; }
+    
+    while (n * n <= 100) {
+        n = n * n;
+        n = n - 5;
+        write n; write "\n";
+    }
+    
+    double k;
+    
+    while (k < 10)
+        k = k + 1;
+        
+    while(false) while(true) k = 0;
+}

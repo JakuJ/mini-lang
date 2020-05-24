@@ -16,7 +16,7 @@
 %union
 {
 public string str;
-public IEvaluable node;
+public IEvaluable eval;
 public VarType type;
 }
 
@@ -26,10 +26,10 @@ public VarType type;
 
 %token <type> Type
 %token <str> String Ident
-%token <node> LitInt LitDouble LitBool
+%token <eval> LitInt LitDouble LitBool
 
-%type <node> rhs value_0 writable
-%type <node> op_1 op_2 op_3 op_4 op_5 op_6
+%type <eval> rhs value_0 writable
+%type <eval> op_1 op_2 op_3 op_4 op_5 op_6
 
 %%
 
@@ -39,12 +39,16 @@ statements: statements statement
           | ;
 
 statement: block
+         | whileStmnt
          | oneliner Semicolon
-         | oneliner { ParseError("Syntax error, missing semicolon"); }
          | error Semicolon { yyerrok(); }
          | error EOF
          | error { yyerrok(); }
          ;
+         
+block: LBrace statements RBrace ;
+
+whileStmnt: While LParen rhs RParen {{ builder.StartWhile($3); }} statement {{ builder.EndWhile(); }} ;
          
 oneliner: declaration
         | assignment
@@ -52,8 +56,6 @@ oneliner: declaration
         | read
         | Return { builder.AddReturn(); }
         ;
-
-block: LBrace statements RBrace ;
 
 declaration: Type Ident { builder.AddDeclaration($2, $1); } ;
 

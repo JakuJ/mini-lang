@@ -32,7 +32,7 @@ namespace UnitTests
         {
             get
             {
-                (string, int)[] cases = new[]
+                (string, int)[] cases =
                 {
                     ("eof.mini", 1),
                     ("undeclared.mini", 3),
@@ -47,6 +47,7 @@ namespace UnitTests
                     ("comp_ops.mini", 4),
                     ("logic_ops.mini", 4),
                     ("unary.mini", 5),
+                    ("while.mini", 4),
                 };
 
                 foreach ((string path, int expected) in cases)

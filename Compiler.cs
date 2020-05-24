@@ -80,6 +80,11 @@ namespace mini_lang
         VarType Type { get; }
     }
 
+    public interface IScope : INode
+    {
+        List<INode> Statements { get; }
+    }
+
     #endregion
 
     #region AST
@@ -401,11 +406,31 @@ namespace mini_lang
         void INode.Accept(INodeVisitor visitor) => visitor.VisitReturn();
     }
 
-    public class Program : INode
+    public class While : IScope
     {
-        public List<INode> Instructions { get; }
+        public readonly IEvaluable Condition;
+        public List<INode> Statements { get; }
 
-        public Program() => Instructions = new List<INode>();
+        public While(IEvaluable condition)
+        {
+            Condition = condition;
+            Statements = new List<INode>();
+
+            if (condition.Type != VarType.Bool)
+            {
+                Compiler.Error(
+                    $"While loop condition must evaluate to {VarType.Bool.GetToken()}, not {condition.Type.GetToken()}");
+            }
+        }
+
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitWhile(this);
+    }
+
+    public class Program : IScope
+    {
+        public List<INode> Statements { get; }
+
+        public Program() => Statements = new List<INode>();
 
         public void Accept(INodeVisitor visitor) => visitor.VisitProgram(this);
     }
@@ -427,6 +452,7 @@ namespace mini_lang
         void VisitWrite(Write write);
         void VisitRead(Read read);
         void VisitReturn();
+        void VisitWhile(While @while);
 
         // Operators
         void VisitMathOp(MathOp mathOp);
@@ -437,11 +463,16 @@ namespace mini_lang
 
     public class AstBuilder
     {
-        public Program Program { get; private set; }
-
+        private Stack<IScope> _scopes;
         private readonly Dictionary<string, VarType> _declared;
 
-        public AstBuilder() => _declared = new Dictionary<string, VarType>();
+        public IScope CurrentScope => _scopes.Peek();
+
+        public AstBuilder()
+        {
+            _scopes = new Stack<IScope>();
+            _declared = new Dictionary<string, VarType>();
+        }
 
         public Identifier CreateIdentifier(string name)
         {
@@ -451,9 +482,19 @@ namespace mini_lang
             return new Identifier(name, VarType.Integer);
         }
 
-        public void AddProgram() => Program = new Program();
+        public void AddProgram() => _scopes.Push(new Program());
 
-        private void Append(INode node) => Program.Instructions.Add(node);
+        private void Append(INode node)
+        {
+            if (_scopes.Count == 0)
+            {
+                Compiler.Error($"No surrounding block to add a statement to.", true);
+            }
+            else
+            {
+                CurrentScope.Statements.Add(node);
+            }
+        }
 
         public void AddDeclaration(string name, VarType type)
         {
@@ -477,6 +518,21 @@ namespace mini_lang
         public void AddRead(string name) => Append(new Read(CreateIdentifier(name)));
 
         public void AddReturn() => Append(new Return());
+
+        public void StartWhile(IEvaluable condition) => _scopes.Push(new While(condition));
+
+        public void EndWhile()
+        {
+            IScope scope = _scopes.Pop();
+            if (scope is While @while)
+            {
+                Append(@while);
+            }
+            else
+            {
+                Compiler.Error("Couldn't finish a while statement", true);
+            }
+        }
     }
 
     public class CilBuilder : INodeVisitor
@@ -506,7 +562,7 @@ namespace mini_lang
         public void VisitProgram(Program program)
         {
             EmitPrologue();
-            program.Instructions.ForEach(x => x.Accept(this));
+            program.Statements.ForEach(x => x.Accept(this));
             EmitEpilogue();
             _sw.Flush();
             _sw.Close();
@@ -627,6 +683,19 @@ namespace mini_lang
         }
 
         public void VisitReturn() => EmitLine("leave EndMain");
+
+        public void VisitWhile(While @while)
+        {
+            string startWhile = Label;
+            string endWhile = Label;
+
+            EmitLine($"{startWhile}:");
+            @while.Condition.Accept(this);
+            EmitLine($"brfalse {endWhile}");
+            @while.Statements.ForEach(x => x.Accept(this));
+            EmitLine($"br {startWhile}");
+            EmitLine($"{endWhile}:");
+        }
 
         public void VisitMathOp(MathOp mathOp)
         {
@@ -773,13 +842,13 @@ namespace mini_lang
         public void VisitProgram(Program program)
         {
             Console.WriteLine("program {");
-            program.Instructions.ForEach(x => x.Accept(this));
+            program.Statements.ForEach(x => x.Accept(this));
             Console.WriteLine("}");
         }
 
         public void VisitIdentifier(Identifier identifier) => Console.Write(identifier.Name);
 
-        public void VisitDeclaration(Declaration d) => Console.WriteLine($"{d.Type} {d.Identifier.Name};");
+        public void VisitDeclaration(Declaration d) => Console.WriteLine($"{d.Type.GetToken()} {d.Identifier.Name};");
 
         public void VisitConstant(Constant constant) => Console.Write(constant.Value);
 
@@ -800,6 +869,15 @@ namespace mini_lang
         public void VisitRead(Read read) => Console.WriteLine($"read {read.Target.Name}");
 
         public void VisitReturn() => Console.WriteLine("return;");
+
+        public void VisitWhile(While @while)
+        {
+            Console.Write("while (");
+            @while.Condition.Accept(this);
+            Console.WriteLine(") {");
+            @while.Statements.ForEach(x => x.Accept(this));
+            Console.WriteLine("}");
+        }
 
         public void VisitUnaryOp(UnaryOp unaryOp)
         {
@@ -898,7 +976,7 @@ namespace mini_lang
             // Also count errors reported by the lexing and parsing classes
             errors += scanner.Errors;
 
-            return (builder.Program, errors);
+            return (builder.CurrentScope as Program, errors);
         }
 
         [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
