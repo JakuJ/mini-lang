@@ -168,6 +168,9 @@
         <Content Update="TestSources\Outputs\ifelse.mini">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
+        <Content Update="TestSources\Outputs\monte_carlo.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\mini-lang.csproj">

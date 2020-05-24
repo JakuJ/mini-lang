@@ -39,9 +39,6 @@ program {
     }
     
     pi = 4.0 * inside / iters;
-    write "Approximated PI after ";
-    write iters;
-    write " iterations: ";
-    write pi;
-    write "\n";
+    write "PI between 3 and 3.3: ";
+    write pi > 3 && pi < 3.3;
 }
