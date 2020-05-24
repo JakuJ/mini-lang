@@ -6,6 +6,7 @@ program {
     x = 05;
     
     double d;
+    d = 1..2;
     d = true;
     d = false;
     d = 1. ;

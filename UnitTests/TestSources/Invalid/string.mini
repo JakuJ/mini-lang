@@ -11,4 +11,7 @@ program {
     write "unmatched;
     
     write unmatched";
+    
+    write "multiline
+           string";
 }

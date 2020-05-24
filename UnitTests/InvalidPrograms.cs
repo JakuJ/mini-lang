@@ -34,13 +34,16 @@ namespace UnitTests
             {
                 (string, int)[] cases =
                 {
+                    ("emptyfile.mini", 1),
+                    ("onetoomany.mini", 1),
                     ("eof.mini", 1),
                     ("undeclared.mini", 3),
-                    ("redeclaration.mini", 3),
-                    ("invalid_assignment.mini", 11),
+                    ("redeclaration.mini", 4),
+                    ("invalid_assignment.mini", 12),
+                    ("double_assignment.mini", 1),
                     ("identifiers.mini", 10),
                     ("case.mini", 5),
-                    ("string.mini", 5),
+                    ("string.mini", 6),
                     ("missing_arg.mini", 5),
                     ("math_ops.mini", 7),
                     ("bit_ops.mini", 5),

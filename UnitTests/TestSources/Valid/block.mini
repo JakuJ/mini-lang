@@ -1,10 +1,9 @@
 program {
+    double d;
     {
-        double d;
         {
-            read d;
+            d = 5;
         }
     }
-    {} {} {{}}
-    write d;
+    {} {} {{}} {{{{{}}}}}
 }

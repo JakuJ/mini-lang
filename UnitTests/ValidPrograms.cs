@@ -35,6 +35,8 @@ namespace UnitTests
 
             var codeGen = new CilBuilder(Path.Combine(TestContext.CurrentContext.WorkDirectory, path));
             Assert.DoesNotThrow(() => { program.Accept(codeGen); });
+
+            // TODO: Compile and run peverify
         }
     }
 

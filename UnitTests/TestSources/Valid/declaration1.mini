@@ -2,4 +2,12 @@ program {
     int x;
     double y;
     bool z;
+    
+    int X;
+    double Y;
+    bool Z;
+    
+    int x2;
+    double y1928736; double y2k; 
+    bool zzzzz; bool z2f13e; bool asdf;
 }

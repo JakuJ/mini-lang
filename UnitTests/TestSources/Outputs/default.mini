@@ -1,0 +1,11 @@
+program {
+    int x;
+    double d;
+    bool b;
+    
+    write x;
+    write " ";
+    write d;
+    write " ";
+    write b;
+}

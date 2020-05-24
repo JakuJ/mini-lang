@@ -1,0 +1,20 @@
+program {
+    int n;
+    int x;
+    int y;
+    int a;
+    int b;
+    
+    b = 5;
+    x = 5;
+    y = 7;
+    
+    // Przykłady z zadania:
+    
+    n = 1;
+    write n; write " ";
+    
+    write x + y; write " ";
+    
+    write ( a>=0 && a<10 ) || b>3; // True, 5 > 3
+}

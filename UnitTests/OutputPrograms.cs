@@ -56,6 +56,8 @@ namespace UnitTests
                 Assert.AreEqual(0, linkerProcess.ExitCode);
             });
 
+            // TODO: Run peverify
+
             var output = "";
 
             Assert.DoesNotThrow(() =>
@@ -91,8 +93,10 @@ namespace UnitTests
             {
                 (string, string)[] cases =
                 {
-                    ("task1.mini", "5 123.456000 True "),
+                    ("brodka1.mini", "5 123.456000 True "),
+                    ("brodka2.mini", "1 12 True"),
                     ("return.mini", "return"),
+                    ("default.mini", "0 0.000000 False"),
                     ("math_ops.mini", "3 -1 2 0.000000 0.500000 2.000000 6 -2.000000 25.000000 6 6 "),
                     ("bit_ops.mini", "15 40.000000 0 3 "),
                     ("comp_ops.mini", "True False False False True True True True True"),

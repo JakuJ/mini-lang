@@ -7,4 +7,5 @@ program {
     
     bool z;
     bool z;
+    bool z;
 }
