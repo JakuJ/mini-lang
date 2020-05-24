@@ -59,7 +59,7 @@ namespace mini_lang
         [Token("int")] Integer,
         [Token("double")] Double,
         [Token("bool")] Bool,
-        [Token("string")] String
+        [Token("string")] String // TODO: Not a *variable* type
     }
 
     /// <summary>
@@ -130,6 +130,11 @@ namespace mini_lang
         public readonly OpType Op;
         public readonly IEvaluable Rhs;
 
+        /// <summary>
+        /// Use this constructor for unary operators other than explicit conversions.
+        /// </summary>
+        /// <param name="op">Operator type - one of <see cref="OpType"/>s</param>
+        /// <param name="rhs">Operand</param>
         public UnaryOp(OpType op, IEvaluable rhs)
         {
             Op = op;
@@ -149,9 +154,18 @@ namespace mini_lang
                     Type = VarType.Bool;
                     if (Rhs.Type != Type) InvalidType();
                     break;
+                case OpType.Conv2Int:
+                case OpType.Conv2Double:
+                    Compiler.Error($"Invalid OpType for this constructor.");
+                    break;
             }
         }
 
+        /// <summary>
+        /// Use this constructor for explicit conversions.
+        /// </summary>
+        /// <param name="convertTo">Target type of the conversion.</param>
+        /// <param name="rhs">The value to be converted.</param>
         public UnaryOp(VarType convertTo, IEvaluable rhs)
         {
             Type = convertTo;
@@ -505,20 +519,14 @@ namespace mini_lang
             switch (declaration.Type)
             {
                 case VarType.Bool:
-                {
                     EmitLine($".locals init ( bool {declaration.Identifier.Name} )");
                     break;
-                }
                 case VarType.Integer:
-                {
                     EmitLine($".locals init ( int32 {declaration.Identifier.Name} )");
                     break;
-                }
                 case VarType.Double:
-                {
                     EmitLine($".locals init ( float64 {declaration.Identifier.Name} )");
                     break;
-                }
             }
         }
 
