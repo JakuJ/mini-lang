@@ -330,29 +330,13 @@ namespace mini_lang
         public override void Accept(INodeVisitor visitor) => visitor.VisitLogicOp(this);
     }
 
-    #endregion
-
-    #region Statements
-
-    public class Declaration : INode
+    public class Assignment : IEvaluable
     {
-        public readonly Identifier Identifier;
-        public readonly VarType Type;
+        public Identifier Lhs { get; }
+        public IEvaluable Rhs { get; }
+        public bool Conversion { get; }
 
-        public Declaration(VarType vType, Identifier identifier)
-        {
-            Type = vType;
-            Identifier = identifier;
-        }
-
-        void INode.Accept(INodeVisitor visitor) => visitor.VisitDeclaration(this);
-    }
-
-    public class Assignment : INode
-    {
-        public readonly Identifier Lhs;
-        public readonly IEvaluable Rhs;
-        public readonly bool Conversion;
+        public VarType Type => Lhs.Type;
 
         public Assignment(Identifier identifier, IEvaluable rhs)
         {
@@ -367,6 +351,31 @@ namespace mini_lang
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitAssignment(this);
+    }
+
+    #endregion
+
+    #region Statements
+
+    public class ExprStatement : INode
+    {
+        public IEvaluable Expression { get; }
+        public ExprStatement(IEvaluable expression) => Expression = expression;
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitExprStatement(this);
+    }
+
+    public class Declaration : INode
+    {
+        public readonly Identifier Identifier;
+        public readonly VarType Type;
+
+        public Declaration(VarType vType, Identifier identifier)
+        {
+            Type = vType;
+            Identifier = identifier;
+        }
+
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitDeclaration(this);
     }
 
     public class Write : INode
@@ -441,18 +450,21 @@ namespace mini_lang
 
     public interface INodeVisitor
     {
-        // Statements
-        void VisitProgram(Program program);
-        void VisitBlock(Block block);
+        // Primitives
         void VisitIdentifier(Identifier identifier);
+        void VisitConstant(Constant constant);
+        void VisitProgram(Program program);
+
+        // Statements
+        void VisitBlock(Block block);
+        void VisitExprStatement(ExprStatement exprStatement);
         void VisitDeclaration(Declaration declaration);
         void VisitAssignment(Assignment assignment);
-        void VisitConstant(Constant constant);
         void VisitWrite(Write write);
         void VisitRead(Read read);
-        void VisitReturn();
         void VisitWhile(While @while);
         void VisitIfElse(IfElse ifElse);
+        void VisitReturn();
 
         // Operators
         void VisitMathOp(MathOp mathOp);
@@ -525,6 +537,12 @@ namespace mini_lang
 
         public void VisitBlock(Block block) => block.Statements.ForEach(x => x.Accept(this));
 
+        public void VisitExprStatement(ExprStatement exprStatement)
+        {
+            exprStatement.Expression.Accept(this);
+            EmitLine("pop");
+        }
+
         public void VisitIdentifier(Identifier identifier) => EmitLine($"ldloc {identifier.Name}");
 
         public void VisitDeclaration(Declaration declaration)
@@ -583,6 +601,7 @@ namespace mini_lang
             if (assignment.Conversion)
                 EmitConversion(assignment.Lhs.Type);
 
+            EmitLine("dup");
             EmitLine($"stloc {assignment.Lhs.Name}");
         }
 
@@ -821,6 +840,12 @@ namespace mini_lang
             Console.WriteLine("}");
         }
 
+        public void VisitExprStatement(ExprStatement exprStatement)
+        {
+            exprStatement.Expression.Accept(this);
+            Console.WriteLine(";");
+        }
+
         public void VisitIdentifier(Identifier identifier) => Console.Write(identifier.Name);
 
         public void VisitDeclaration(Declaration d) => Console.WriteLine($"{d.Type.GetToken()} {d.Identifier.Name};");
@@ -856,7 +881,7 @@ namespace mini_lang
         public void VisitIfElse(IfElse ifElse)
         {
             Console.Write("if (");
-            @ifElse.Condition.Accept(this);
+            ifElse.Condition.Accept(this);
             Console.Write(") ");
             ifElse.ThenBlock.Accept(this);
 

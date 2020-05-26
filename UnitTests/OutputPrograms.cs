@@ -96,6 +96,7 @@ namespace UnitTests
                     ("brodka1.mini", "5 123.456000 True "),
                     ("brodka2.mini", "1 12 True"),
                     ("return.mini", "return"),
+                    ("multi_assignment.mini", "6 6 6.000000"),
                     ("default.mini", "0 0.000000 False"),
                     ("math_ops.mini", "3 -1 2 0.000000 0.500000 2.000000 6 -2.000000 25.000000 6 6 "),
                     ("bit_ops.mini", "15 40.000000 0 3 "),

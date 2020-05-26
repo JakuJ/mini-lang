@@ -1,0 +1,10 @@
+program {
+    int x;
+    int y;
+    
+    x = y = 1;
+    
+    double d;
+    
+    d = x = y = 5;
+}

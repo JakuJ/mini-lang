@@ -1,0 +1,13 @@
+program {
+    int n;
+    int x;
+    int y;
+    int a;
+    int b;
+    
+    n = 1;
+    x + y;
+    ( a>=0 && a<10 ) || b>3 ;
+    1;
+    5 + 2;
+}
