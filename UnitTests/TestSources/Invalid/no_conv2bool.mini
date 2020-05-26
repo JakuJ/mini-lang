@@ -1,0 +1,4 @@
+program {
+    bool z;
+    z = (bool) 1;
+}

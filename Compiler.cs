@@ -34,14 +34,14 @@ namespace mini_lang
             // Get FieldInfo for this type
             FieldInfo fieldInfo = type.GetField(value.ToString());
 
-            // Get the StringValue attributes
+            // Get the Token attributes
             if (fieldInfo.GetCustomAttributes(typeof(TokenAttribute), false) is TokenAttribute[] attribs)
             {
                 // Return the first if there was a match.
                 return attribs.Length > 0 ? attribs[0].Token : null;
             }
 
-            return "< ?? >";
+            return "<??>";
         }
     }
 
@@ -237,9 +237,7 @@ namespace mini_lang
             if (op == OpType.BitOr || op == OpType.BitAnd) // Bit operators only accept Integers as operands
             {
                 if (lhs.Type != VarType.Integer || rhs.Type != VarType.Integer)
-                {
                     InvalidType();
-                }
 
                 Type = VarType.Integer;
             }
@@ -288,26 +286,20 @@ namespace mini_lang
 
             if (op == OpType.Eq || op == OpType.Neq)
             {
-                if (lhs.Type == rhs.Type) return;
+                if (lhs.Type == rhs.Type)
+                    return;
+
                 if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
-                {
                     InvalidType();
-                }
                 else
-                {
                     CastTo = VarType.Double;
-                }
             }
             else
             {
                 if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
-                {
                     InvalidType();
-                }
                 else if (lhs.Type != rhs.Type)
-                {
                     CastTo = VarType.Double;
-                }
             }
         }
 
@@ -331,9 +323,7 @@ namespace mini_lang
             Type = VarType.Bool;
 
             if (Lhs.Type != VarType.Bool || Rhs.Type != VarType.Bool)
-            {
                 InvalidType();
-            }
         }
 
         private void InvalidType() => InvalidType(Op.GetToken());
@@ -370,14 +360,10 @@ namespace mini_lang
             Rhs = rhs;
 
             if (Lhs.Type == VarType.Double && Rhs.Type == VarType.Integer)
-            {
                 Conversion = true;
-            }
             else if (Lhs.Type != Rhs.Type)
-            {
                 Compiler.Error(
                     $"Cannot assign value of type {Rhs.Type.GetToken()} to a variable of type {Lhs.Type.GetToken()}");
-            }
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitAssignment(this);
@@ -417,10 +403,8 @@ namespace mini_lang
             Body = body;
 
             if (condition.Type != VarType.Bool)
-            {
                 Compiler.Error(
                     $"While loop condition must evaluate to {VarType.Bool.GetToken()}, not {condition.Type.GetToken()}");
-            }
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitWhile(this);
@@ -481,14 +465,12 @@ namespace mini_lang
     {
         private readonly Dictionary<string, VarType> _declared;
 
-        public AstBuilder()
-        {
-            _declared = new Dictionary<string, VarType>();
-        }
+        public AstBuilder() => _declared = new Dictionary<string, VarType>();
 
         public Identifier CreateIdentifier(string name)
         {
-            if (_declared.ContainsKey(name)) return new Identifier(name, _declared[name]);
+            if (_declared.ContainsKey(name))
+                return new Identifier(name, _declared[name]);
 
             Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer.GetToken()}");
             return new Identifier(name, VarType.Integer);
@@ -599,9 +581,7 @@ namespace mini_lang
             assignment.Rhs.Accept(this);
 
             if (assignment.Conversion)
-            {
                 EmitConversion(assignment.Lhs.Type);
-            }
 
             EmitLine($"stloc {assignment.Lhs.Name}");
         }
@@ -698,16 +678,12 @@ namespace mini_lang
             mathOp.Lhs.Accept(this);
 
             if (mathOp.Conversion && mathOp.Lhs.Type != mathOp.Type)
-            {
                 EmitConversion(mathOp.Type);
-            }
 
             mathOp.Rhs.Accept(this);
 
             if (mathOp.Conversion && mathOp.Rhs.Type != mathOp.Type)
-            {
                 EmitConversion(mathOp.Type);
-            }
 
             switch (mathOp.Op)
             {
@@ -737,16 +713,13 @@ namespace mini_lang
             compOp.Lhs.Accept(this);
 
             if (compOp.CastTo is VarType type && compOp.Lhs.Type != type)
-            {
                 EmitConversion(type);
-            }
+
 
             compOp.Rhs.Accept(this);
 
             if (compOp.CastTo is VarType type2 && compOp.Rhs.Type != type2)
-            {
                 EmitConversion(type2);
-            }
 
             switch (compOp.Op)
             {
@@ -920,7 +893,7 @@ namespace mini_lang
     /// <summary>
     /// An exception thrown when the AST builder can no longer proceed. 
     /// </summary>
-    public class AstException : Exception
+    public class AstException : Exception // TODO: maybe unused
     {
         /// <inheritdoc cref="AstException"/>
         public AstException(string message) : base(message)
@@ -972,9 +945,7 @@ namespace mini_lang
                 errors++;
 
                 if (interrupt) // TODO: Maybe unused
-                {
                     throw new AstException("Fatal error, cannot analyze further");
-                }
             };
 
             try

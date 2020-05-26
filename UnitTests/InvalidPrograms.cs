@@ -41,6 +41,7 @@ namespace UnitTests
                     ("redeclaration.mini", 4),
                     ("invalid_assignment.mini", 12),
                     ("double_assignment.mini", 1),
+                    ("no_conv2bool.mini", 1),
                     ("identifiers.mini", 10),
                     ("case.mini", 5),
                     ("string.mini", 6),
