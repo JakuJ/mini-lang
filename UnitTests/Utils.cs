@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Threading.Tasks;
 using NUnit.Framework;
 
 namespace UnitTests
@@ -21,11 +22,13 @@ namespace UnitTests
             };
 
             process.Start();
-            string output = process.StandardOutput.ReadToEnd();
-            bool exited = process.WaitForExit(1000);
-            Assert.IsTrue(exited, $"{program} took more than 1 second to finish");
+            Task<string> output = process.StandardOutput.ReadToEndAsync();
+
+            bool exited = process.WaitForExit(5000);
+            Assert.IsTrue(exited, $"{program} took more than 5 seconds to finish");
             Assert.AreEqual(0, process.ExitCode);
-            return output;
+
+            return output.GetAwaiter().GetResult();
         }
 
         public static void Link(string ilPath) => RunExternal("ilasm", ilPath);

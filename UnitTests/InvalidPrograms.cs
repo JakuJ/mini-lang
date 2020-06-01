@@ -36,7 +36,7 @@ namespace UnitTests
                 {
                     ("bit_ops.mini", 5),
                     ("break.mini", 4),
-                    ("break_n.mini", 7),
+                    ("break_n.mini", 8),
                     ("case.mini", 5),
                     ("comp_ops.mini", 4),
                     ("emptyfile.mini", 1),

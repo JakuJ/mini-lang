@@ -52,8 +52,8 @@ namespace UnitTests
                 (string, string)[] cases =
                 {
                     ("bit_ops.mini", "15 40.000000 0 3"),
-                    ("break.mini", "100 10"),
-                    ("break_n.mini", "100 10"),
+                    ("break.mini", "100 20"),
+                    ("break_n.mini", "100 20"),
                     ("brodka1.mini", "5 123.456000 True "),
                     ("brodka2.mini", "1 12 True"),
                     ("comp_ops.mini", "True False False False True True True True True"),

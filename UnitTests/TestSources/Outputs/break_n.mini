@@ -13,7 +13,8 @@ program {
     x = 1;
     while (x < 5)
     {
-        int y = x;
+        int y;
+        y = x;
         while (true) {
             acc = acc + y;
             y = y - 1;
@@ -23,6 +24,8 @@ program {
     }
     
     write acc;
+    
+    while (true) break 1;
     
     while (true)
             while (true)

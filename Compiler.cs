@@ -402,6 +402,21 @@ namespace mini_lang
         void INode.Accept(INodeVisitor visitor) => visitor.VisitReturn();
     }
 
+    public class Break : INode
+    {
+        public readonly int Levels;
+
+        public Break(int levels)
+        {
+            if (levels <= 0)
+                Compiler.Error("Break level not positive");
+
+            Levels = levels;
+        }
+
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitBreak(this);
+    }
+
     public class While : INode
     {
         public readonly IEvaluable Condition;
@@ -465,6 +480,7 @@ namespace mini_lang
         void VisitRead(Read read);
         void VisitWhile(While @while);
         void VisitIfElse(IfElse ifElse);
+        void VisitBreak(Break @break);
         void VisitReturn();
 
         // Operators
@@ -477,6 +493,7 @@ namespace mini_lang
     public class CilBuilder : INodeVisitor
     {
         private readonly StreamWriter _sw;
+        private Stack<string> _loopEnds = new Stack<string>();
         private int _labelNum;
 
         /// <summary>
@@ -628,6 +645,7 @@ namespace mini_lang
             EmitLine("pop");
         }
 
+        public void VisitBreak(Break @break) => EmitLine($"br {_loopEnds.ElementAt(@break.Levels - 1)}");
         public void VisitReturn() => EmitLine("leave EndMain");
 
         public void VisitWhile(While @while)
@@ -637,7 +655,11 @@ namespace mini_lang
             EmitLine($"{startWhile}:");
             @while.Condition.Accept(this);
             EmitLine($"brfalse {endWhile}");
+
+            _loopEnds.Push(endWhile);
             @while.Body.Accept(this);
+            _loopEnds.Pop();
+
             EmitLine($"br {startWhile}");
             EmitLine($"{endWhile}:");
         }
@@ -798,7 +820,7 @@ namespace mini_lang
 
     #endregion
 
-    public partial class AstBuilder
+    public class AstBuilder
     {
         private class Variable
         {
@@ -826,6 +848,8 @@ namespace mini_lang
         private Dictionary<string, Variable> CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
 
         public AstBuilder() => _scopeStack = new Stack<Dictionary<string, Variable>>();
+
+        private int _loopLevel;
 
         public Identifier CreateIdentifier(string name)
         {
@@ -857,18 +881,14 @@ namespace mini_lang
                     // TODO: do not initialize the value (skip "init" in codegen)
                     return new Declaration(type, new Identifier(trueName, type));
                 }
-                else
-                {
-                    Compiler.Error($"Redeclaration of variable {name}");
-                    return null;
-                }
+
+                Compiler.Error($"Redeclaration of variable {name}");
+                return null;
             }
-            else
-            {
-                // Declare a new variable
-                CurrentScope[name] = new Variable(name, type, _scopeStack.Count == 1, false);
-                return new Declaration(type, new Identifier(name, type));
-            }
+
+            // Declare a new variable
+            CurrentScope[name] = new Variable(name, type, _scopeStack.Count == 1, false);
+            return new Declaration(type, new Identifier(name, type));
         }
 
         public Assignment CreateAssignment(string name, IEvaluable rhs)
@@ -879,6 +899,24 @@ namespace mini_lang
             }
 
             return new Assignment(CreateIdentifier(name), rhs);
+        }
+
+        public Break CreateBreak(IEvaluable rhs)
+        {
+            if (rhs is Constant c)
+            {
+                int.TryParse(c.Value, out int levels);
+
+                if (levels > _loopLevel)
+                {
+                    Compiler.Error($"Trying to break out of {levels} loops in {_scopeStack.Count - 1} nested loops");
+                }
+
+                return new Break(levels);
+            }
+
+            Compiler.Error("Break level not an integer literal"); // TODO: this should never happen
+            return new Break(1);
         }
 
         public void PushScope()
@@ -896,6 +934,8 @@ namespace mini_lang
         }
 
         public void PopScope() => _scopeStack.Pop();
+        public void PushLoop() => ++_loopLevel;
+        public void PopLoop() => --_loopLevel;
     }
 
     #region Main

@@ -11,6 +11,7 @@ program {
     
     while (true) {
         break -5;
+        break (1+0);
         break 0;
         
         while(true) {

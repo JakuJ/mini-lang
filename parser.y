@@ -33,7 +33,7 @@ public IEvaluable eval;
 %token <str> String Ident
 %token <eval> LitInt LitDouble LitBool
 
-%type <node> block statement if while oneliner write read
+%type <node> block statement if while oneliner write read break
 
 %type <eval> value_0 writable
 %type <eval> op_1 op_2 op_3 op_4 op_5 op_6 evaluable
@@ -74,7 +74,9 @@ statement: block
          | error                { yyerrok(); }
          ;
 
-while: While LParen evaluable RParen statement            { $$ = new While($3, $5); } ;
+while: While LParen evaluable RParen    { builder.PushLoop(); }
+       statement                        { $$ = new While($3, $6); builder.PopLoop(); }
+       ;
 
 if: If LParen evaluable RParen statement                  { $$ = new IfElse($3, $5); }
   | If LParen evaluable RParen statement Else statement   { $$ = new IfElse($3, $5, $7); }
@@ -83,8 +85,13 @@ if: If LParen evaluable RParen statement                  { $$ = new IfElse($3, 
 oneliner: evaluable     { $$ = new ExprStatement($1); } // discard created value
         | write
         | read
+        | break
         | Return        { $$ = new Return(); }
         ;
+
+break: Break            { $$ = builder.CreateBreak(new Constant("1", VarType.Integer)); }
+     | Break LitInt     { $$ = builder.CreateBreak($2); }
+     ;
 
 read: Read Ident                { $$ = new Read(builder.CreateIdentifier($2)); } ;
 
