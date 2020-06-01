@@ -17,28 +17,25 @@
 
 %union
 {
-public string str;
-public List<string> strings;
-public VarType type;
-public INode node;
-public List<INode> nodes;
-public IEvaluable eval;
+    public string str;
+    public List<string> strings;
+    public VarType type;
+    public INode node;
+    public List<INode> nodes;
+    public IEvaluable eval;
 }
 
-%token Program If Else While Read Write Return Break
+%token Program If Else While Read Write Return Break Continue Create
 %token Assign Or And BitOr BitAnd Eq Neq Gt Gte Lt Lte Plus Minus Mult Div Not BitNot
-%token LParen RParen LBrace RBrace Semicolon Comma
+%token LParen RParen LBrace RBrace LBracket RBracket Semicolon Comma
 
-%token <type> Type
-%token <str> String Ident
-%token <eval> LitInt LitDouble LitBool
+%token <type>   Type
+%token <str>    String Ident
+%token <eval>   LitInt LitDouble LitBool
 
-%type <node> block statement if while oneliner write read break
-
-%type <eval> value_0 writable
-%type <eval> op_1 op_2 op_3 op_4 op_5 op_6 evaluable
-
-%type <nodes> declaration declarations statements
+%type <node>    block statement if while oneliner write read break
+%type <eval>    value_0 writable op_1 op_2 op_3 op_4 op_5 op_6 evaluable
+%type <nodes>   declaration declarations statements
 %type <strings> idents
 %%
 
@@ -86,6 +83,7 @@ oneliner: evaluable     { $$ = new ExprStatement($1); } // discard created value
         | write
         | read
         | break
+        | Continue      { $$ = builder.CreateContinue(); }
         | Return        { $$ = new Return(); }
         ;
 

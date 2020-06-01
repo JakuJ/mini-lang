@@ -417,6 +417,11 @@ namespace mini_lang
         void INode.Accept(INodeVisitor visitor) => visitor.VisitBreak(this);
     }
 
+    public class Continue : INode
+    {
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitContinue();
+    }
+
     public class While : INode
     {
         public readonly IEvaluable Condition;
@@ -481,6 +486,7 @@ namespace mini_lang
         void VisitWhile(While @while);
         void VisitIfElse(IfElse ifElse);
         void VisitBreak(Break @break);
+        void VisitContinue();
         void VisitReturn();
 
         // Operators
@@ -493,7 +499,7 @@ namespace mini_lang
     public class CilBuilder : INodeVisitor
     {
         private readonly StreamWriter _sw;
-        private Stack<string> _loopEnds = new Stack<string>();
+        private Stack<(string, string)> _loopLabels = new Stack<(string, string)>();
         private int _labelNum;
 
         /// <summary>
@@ -645,7 +651,8 @@ namespace mini_lang
             EmitLine("pop");
         }
 
-        public void VisitBreak(Break @break) => EmitLine($"br {_loopEnds.ElementAt(@break.Levels - 1)}");
+        public void VisitBreak(Break @break) => EmitLine($"br {_loopLabels.ElementAt(@break.Levels - 1).Item2}");
+        public void VisitContinue() => EmitLine($"br {_loopLabels.Peek().Item1}");
         public void VisitReturn() => EmitLine("leave EndMain");
 
         public void VisitWhile(While @while)
@@ -656,9 +663,9 @@ namespace mini_lang
             @while.Condition.Accept(this);
             EmitLine($"brfalse {endWhile}");
 
-            _loopEnds.Push(endWhile);
+            _loopLabels.Push((startWhile, endWhile));
             @while.Body.Accept(this);
-            _loopEnds.Pop();
+            _loopLabels.Pop();
 
             EmitLine($"br {startWhile}");
             EmitLine($"{endWhile}:");
@@ -908,15 +915,21 @@ namespace mini_lang
                 int.TryParse(c.Value, out int levels);
 
                 if (levels > _loopLevel)
-                {
                     Compiler.Error($"Trying to break out of {levels} loops in {_scopeStack.Count - 1} nested loops");
-                }
 
                 return new Break(levels);
             }
 
             Compiler.Error("Break level not an integer literal"); // TODO: this should never happen
             return new Break(1);
+        }
+
+        public Continue CreateContinue()
+        {
+            if (_loopLevel < 1)
+                Compiler.Error($"Continue statement outside of a loop");
+
+            return new Continue();
         }
 
         public void PushScope()

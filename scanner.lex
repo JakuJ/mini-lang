@@ -30,10 +30,13 @@ LogicOr     "|"{2}
 "program"       { return (int)Tokens.Program; }
 "{"             { return (int)Tokens.LBrace; }
 "}"             { return (int)Tokens.RBrace; }
+"["             { return (int)Tokens.LBracket; }
+"]"             { return (int)Tokens.RBracket; }
 ","             { return (int)Tokens.Comma; }
 "int"           { yylval.type = VarType.Integer; return (int)Tokens.Type; }
 "double"        { yylval.type = VarType.Double; return (int)Tokens.Type; }
 "bool"          { yylval.type = VarType.Bool; return (int)Tokens.Type; }
+"create"        { return (int)Tokens.Create; }
 "write"         { return (int)Tokens.Write; }
 "read"          { return (int)Tokens.Read; }
 "return"        { return (int)Tokens.Return; }
@@ -41,6 +44,7 @@ LogicOr     "|"{2}
 "if"            { return (int)Tokens.If; }
 "else"          { return (int)Tokens.Else; }
 "break"         { return (int)Tokens.Break; }
+"continue"      { return (int)Tokens.Continue; }
 
 "=="            { return (int)Tokens.Eq; }
 "="             { return (int)Tokens.Assign; }

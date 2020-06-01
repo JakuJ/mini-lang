@@ -39,6 +39,7 @@ namespace UnitTests
                     ("break_n.mini", 8),
                     ("case.mini", 5),
                     ("comp_ops.mini", 4),
+                    ("continue.mini", 4),
                     ("emptyfile.mini", 1),
                     ("eof.mini", 1),
                     ("identifiers.mini", 10),

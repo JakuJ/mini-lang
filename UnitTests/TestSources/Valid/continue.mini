@@ -1,0 +1,13 @@
+program {
+    while (true) {
+        continue;
+    }
+    
+    while (true) continue;
+    
+    while (true)
+        while (true)
+        {
+            continue;
+        }
+}

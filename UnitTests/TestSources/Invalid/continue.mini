@@ -1,0 +1,11 @@
+program {
+    continue;
+    {
+        continue;
+    }
+    if (true) {
+        continue;
+    } else {
+        continue;
+    }
+}

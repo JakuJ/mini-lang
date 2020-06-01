@@ -245,6 +245,12 @@
         <Content Update="TestSources\Outputs\break_n.mini">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
+        <Content Update="TestSources\Valid\continue.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Update="TestSources\Outputs\continue.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\mini-lang.csproj">

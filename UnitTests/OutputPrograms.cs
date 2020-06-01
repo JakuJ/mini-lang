@@ -57,6 +57,7 @@ namespace UnitTests
                     ("brodka1.mini", "5 123.456000 True "),
                     ("brodka2.mini", "1 12 True"),
                     ("comp_ops.mini", "True False False False True True True True True"),
+                    ("continue.mini", "1 3 5 7 9 "),
                     ("default.mini", "0 0.000000 False"),
                     ("ifelse.mini", "7 22 11 34 17 52 26 13 40 20 10 5 16 8 4 2 iters: 16"),
                     ("logic_ops.mini", "True True False True False"),
