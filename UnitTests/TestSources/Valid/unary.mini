@@ -1,5 +1,8 @@
 program {
     int x;
+    double d;
+    bool b;
+    
     x = -1;
     x = ---(--(--(((-5)))));
     x = ~5;
@@ -9,7 +12,6 @@ program {
     x = (int) true;
     x = (int) false;
     
-    double d;
     d = 5;
     d = -d;
     d = -1 - -2;
@@ -19,7 +21,6 @@ program {
     d = (double) true;
     d = (double) (false && !false);
     
-    bool b;
     b = !true;
     b = ! false;
 }

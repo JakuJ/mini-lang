@@ -1,5 +1,7 @@
 program {
     bool a;
+    double z1; double z2;
+    
     a = true == true;
     write a; write " ";
     a = false != false;
@@ -12,7 +14,6 @@ program {
     write 0 >= 0.0; write " ";
     write 5 == 5; write " ";
     
-    double z1; double z2;
     z1 = 1.0;
     z2 = 2.0;
     

@@ -1,6 +1,10 @@
 program {
     int n;
     int k;
+    int i;
+    int j;
+    int squares;
+    
     n = 1;
     k = 8;
     
@@ -17,10 +21,6 @@ program {
         n = n + 1;
         write n; write " ";
     }
-    
-    int i;
-    int j;
-    int squares;
     
     while (i < 3) {
         while (j < 3) {

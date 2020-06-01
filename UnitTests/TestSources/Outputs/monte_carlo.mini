@@ -1,5 +1,5 @@
 program {
-    double a; double c; double m; // RNG magic numbers
+    double a; double m; // RNG magic numbers
     double seed; // RNG SEED
     double x; double y; // Coordinates
     int i; int iters; // Loop index
@@ -10,13 +10,12 @@ program {
     
     seed = 123456789;
     a = 48271;
-    c = 0;
     m = 2147483647; // 2^31 - 1, max int
     
     while (i < iters) {
     
         // Create a new pseudorandom coordinate using an LCG
-        seed = a * seed + c;
+        seed = a * seed;
         while (seed > m) {
             seed = seed - m;
         }
@@ -24,7 +23,7 @@ program {
         x = 2 * seed / m - 1;
         
         // Create another pseudorandom coordinate
-        seed = (a * seed + c);
+        seed = a * seed;
         while (seed > m) {
             seed = seed - m;
         }

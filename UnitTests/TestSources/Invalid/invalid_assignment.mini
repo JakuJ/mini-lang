@@ -1,11 +1,13 @@
 program {
     int x;
+    double d;
+    bool b;
+    
     x = 1.0;
     x = true;
     x = false;
     x = 05;
     
-    double d;
     d = 1..2;
     d = true;
     d = false;
@@ -13,7 +15,6 @@ program {
     d = 5. ;
     d = 05.0;
     
-    bool b;
     b = 1;
     b = 3.14; 
 }

@@ -1,8 +1,8 @@
 program {
-    write 1 < 2 && 3 < 4; write " "; // True
-    
     int n;
     n = 5;
+    
+    write 1 < 2 && 3 < 4; write " "; // True
     
     write 2 * n < 3 * n && n + 5 >= n - 2; write " "; // True
     

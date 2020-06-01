@@ -1,20 +1,21 @@
 program {
+    double k;
+    double k2;
+    double what;
+    
     write 1 + 2; write " ";
     write 1 - 2; write " ";
     write 1 * 2; write " ";
     
-    double k;
     k = 1 / 2;
     write k; write " "; // 0.000000, conversion after division
     
-    double k2;
     k2 = 1 / 2.0;
     write k2; write " "; // 0.500000
     
     write 1.0 * 2; write " ";
     write 2 + 2 * 2; write " ";
     
-    double what;
     what = (((((1 + 0) + 1.0) + 2) * 3) / 4) - 5;
     write what; write " "; // -2.000000
     

@@ -1,15 +1,14 @@
 program {
     int x;
-    x = "napis1";
-    
     double y;
-    y = "napis2";
-    
     bool z;
+    
+    x = "napis1";
+    y = "napis2";
     z = "napis3";
     
     write "unmatched;
-    
+
     write unmatched";
     
     write "multiline
