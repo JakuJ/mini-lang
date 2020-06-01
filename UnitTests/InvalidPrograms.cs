@@ -20,7 +20,8 @@ namespace UnitTests
         public void InvalidProgram(string path, int atLeast)
         {
             var errs = 0;
-            Assert.DoesNotThrow(() => { errs = CompilationErrors(path); });
+            // Assert.DoesNotThrow(() => { errs = CompilationErrors(path); });
+            errs = CompilationErrors(path);
             Assert.GreaterOrEqual(errs, atLeast);
             Console.Error.WriteLine($"Passed, {errs} errors found");
         }

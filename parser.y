@@ -36,16 +36,26 @@ public List<INode> list;
 %type <eval> value_0 writable
 %type <eval> op_1 op_2 op_3 op_4 op_5 op_6 evaluable
 
-%type <list> statements
+%type <list> declarations statements
 %%
 
-start: Program block                { Program = new Program($2); } ;
+start: Program block                                { Program = new Program($2); } ;
 
-block: LBrace statements RBrace     { $$ = new Block($2); };
+block: LBrace declarations statements RBrace        { $2.AddRange($3); $$ = new Block($2); };
+
+declarations: declarations declaration              { $1.Add($2); $$ = $1; }
+            |                                       { $$ = new List<INode>(); }
+            ;
 
 statements: statements statement    { $1.Add($2); $$ = $1; }
           |                         { $$ = new List<INode>(); } 
-          ; 
+          ;
+          
+declaration: Type Ident Semicolon   { $$ = builder.CreateDeclaration($2, $1); }
+           | error Semicolon        { yyerrok(); }
+           | error EOF
+           | error                  { yyerrok(); }
+           ;
 
 statement: block
          | while
@@ -62,14 +72,11 @@ if: If LParen evaluable RParen statement                  { $$ = new IfElse($3, 
   | If LParen evaluable RParen statement Else statement   { $$ = new IfElse($3, $5, $7); }
   ;
          
-oneliner: declaration
-        | evaluable     { $$ = new ExprStatement($1); } // discard created value
+oneliner: evaluable     { $$ = new ExprStatement($1); } // discard created value
         | write
         | read
         | Return        { $$ = new Return(); }
         ;
-        
-declaration: Type Ident         { $$ = builder.CreateDeclaration($2, $1); } ;
 
 read: Read Ident                { $$ = new Read(builder.CreateIdentifier($2)); } ;
 
