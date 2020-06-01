@@ -1,8 +1,8 @@
 program {
-    double a; double m; // RNG magic numbers
+    double a, m; // RNG magic numbers
     double seed; // RNG SEED
-    double x; double y; // Coordinates
-    int i; int iters; // Loop index
+    double x, y; // Coordinates
+    int i, iters; // Loop index
     int inside;
     double pi;
     

@@ -45,6 +45,7 @@ namespace UnitTests
                     ("no_conv2bool.mini", 1),
                     ("identifiers.mini", 10),
                     ("mixed_decls.mini", 3),
+                    ("multi_decls.mini", 2),
                     ("case.mini", 5),
                     ("string.mini", 6),
                     ("missing_arg.mini", 5),

@@ -30,6 +30,7 @@ LogicOr     "|"{2}
 "program"       { return (int)Tokens.Program; }
 "{"             { return (int)Tokens.LBrace; }
 "}"             { return (int)Tokens.RBrace; }
+","             { return (int)Tokens.Comma; }
 "int"           { yylval.type = VarType.Integer; return (int)Tokens.Type; }
 "double"        { yylval.type = VarType.Double; return (int)Tokens.Type; }
 "bool"          { yylval.type = VarType.Bool; return (int)Tokens.Type; }

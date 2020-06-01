@@ -1,7 +1,6 @@
 program {
-    int x;
+    int x, g;
     double k;
-    int g;
     
     x = 9 | 6;
     write x; write " ";

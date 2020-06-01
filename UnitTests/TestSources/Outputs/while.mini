@@ -1,9 +1,5 @@
 program {
-    int n;
-    int k;
-    int i;
-    int j;
-    int squares;
+    int n, k, i, j, squares;
     
     n = 1;
     k = 8;

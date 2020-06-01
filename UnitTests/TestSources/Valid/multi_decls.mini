@@ -1,0 +1,11 @@
+program {
+    int x, y, z;
+    
+    double d1, d2,
+           d3, d4;
+    
+    bool
+        yes,
+        no
+    ;
+}

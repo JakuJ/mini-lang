@@ -1,7 +1,5 @@
 program {
-    double k;
-    double k2;
-    double what;
+    double k, k2, what;
     
     write 1 + 2; write " ";
     write 1 - 2; write " ";

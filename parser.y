@@ -1,5 +1,6 @@
 %using mini_lang
 %using GardensPoint
+%using System.Linq
 %namespace GardensPoint
 %output=Parser.cs
 
@@ -17,33 +18,35 @@
 %union
 {
 public string str;
+public List<string> strings;
 public VarType type;
 public INode node;
+public List<INode> nodes;
 public IEvaluable eval;
-public List<INode> list;
 }
 
 %token Program If Else While Read Write Return
 %token Assign Or And BitOr BitAnd Eq Neq Gt Gte Lt Lte Plus Minus Mult Div Not BitNot
-%token LParen RParen LBrace RBrace Semicolon
+%token LParen RParen LBrace RBrace Semicolon Comma
 
 %token <type> Type
 %token <str> String Ident
 %token <eval> LitInt LitDouble LitBool
 
-%type <node> block statement if while oneliner declaration write read
+%type <node> block statement if while oneliner write read
 
 %type <eval> value_0 writable
 %type <eval> op_1 op_2 op_3 op_4 op_5 op_6 evaluable
 
-%type <list> declarations statements
+%type <nodes> declaration declarations statements
+%type <strings> idents
 %%
 
 start: Program block                                { Program = new Program($2); } ;
 
 block: LBrace declarations statements RBrace        { $2.AddRange($3); $$ = new Block($2); };
 
-declarations: declarations declaration              { $1.Add($2); $$ = $1; }
+declarations: declarations declaration              { $1.AddRange($2); $$ = $1; }
             |                                       { $$ = new List<INode>(); }
             ;
 
@@ -51,11 +54,15 @@ statements: statements statement    { $1.Add($2); $$ = $1; }
           |                         { $$ = new List<INode>(); } 
           ;
           
-declaration: Type Ident Semicolon   { $$ = builder.CreateDeclaration($2, $1); }
-           | error Semicolon        { yyerrok(); }
+declaration: Type idents Ident Semicolon    { $$ = $2.Append($3).Select(x => builder.CreateDeclaration(x, $1) as INode).ToList(); }
+           | error Semicolon                { yyerrok(); $$ = new List<INode>(); }
            | error EOF
-           | error                  { yyerrok(); }
+           | error                          { yyerrok(); $$ = new List<INode>(); }
            ;
+           
+idents: idents Ident Comma          { $1.Add($2); $$ = $1; }
+      |                             { $$ = new List<string>(); }
+      ;
 
 statement: block
          | while

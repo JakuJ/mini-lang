@@ -1,6 +1,6 @@
 program {
     bool a;
-    double z1; double z2;
+    double z1, z2;
     
     a = true == true;
     write a; write " ";

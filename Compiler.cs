@@ -473,35 +473,6 @@ namespace mini_lang
         void VisitUnaryOp(UnaryOp unaryOp);
     }
 
-    public class AstBuilder
-    {
-        private readonly Dictionary<string, VarType> _declared;
-
-        public AstBuilder() => _declared = new Dictionary<string, VarType>();
-
-        public Identifier CreateIdentifier(string name)
-        {
-            if (_declared.ContainsKey(name))
-                return new Identifier(name, _declared[name]);
-
-            Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer.GetToken()}");
-            return new Identifier(name, VarType.Integer);
-        }
-
-        public Declaration CreateDeclaration(string name, VarType type)
-        {
-            if (_declared.ContainsKey(name))
-            {
-                Compiler.Error($"Redeclaration of variable {name}");
-                return null;
-            }
-
-            // Declare a new Identifier
-            _declared[name] = type;
-            return new Declaration(type, CreateIdentifier(name));
-        }
-    }
-
     public class CilBuilder : INodeVisitor
     {
         private readonly StreamWriter _sw;
@@ -911,6 +882,35 @@ namespace mini_lang
     }
 
     #endregion
+
+    public class AstBuilder
+    {
+        private readonly Dictionary<string, VarType> _declared;
+
+        public AstBuilder() => _declared = new Dictionary<string, VarType>();
+
+        public Identifier CreateIdentifier(string name)
+        {
+            if (_declared.ContainsKey(name))
+                return new Identifier(name, _declared[name]);
+
+            Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer.GetToken()}");
+            return new Identifier(name, VarType.Integer);
+        }
+
+        public Declaration CreateDeclaration(string name, VarType type)
+        {
+            if (_declared.ContainsKey(name))
+            {
+                Compiler.Error($"Redeclaration of variable {name}");
+                return null;
+            }
+
+            // Declare a new Identifier
+            _declared[name] = type;
+            return new Declaration(type, CreateIdentifier(name));
+        }
+    }
 
     #region Main
 

@@ -1,6 +1,5 @@
 program {
-    int x;
-    int y;
+    int x, y;
     double d;
     
     d = x = y = 6;
