@@ -22,7 +22,8 @@ namespace UnitTests
 
             process.Start();
             string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
+            bool exited = process.WaitForExit(1000);
+            Assert.IsTrue(exited, $"{program} took more than 1 second to finish");
             Assert.AreEqual(0, process.ExitCode);
             return output;
         }

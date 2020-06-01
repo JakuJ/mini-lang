@@ -1,0 +1,26 @@
+program {
+    int x, acc;
+    
+    while (true) {
+        x = x + 1;
+        if (x == 100) {
+            break;
+        }
+    }
+    
+    write x; write " ";
+    
+    x = 1;
+    while (x < 5)
+    {
+        int y = x;
+        while (true) {
+            acc = acc + y;
+            y = y - 1;
+            if (y == 0) break;
+        }
+        x = x + 1;
+    }
+    
+    write acc;
+}

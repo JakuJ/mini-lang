@@ -25,7 +25,7 @@ public List<INode> nodes;
 public IEvaluable eval;
 }
 
-%token Program If Else While Read Write Return
+%token Program If Else While Read Write Return Break
 %token Assign Or And BitOr BitAnd Eq Neq Gt Gte Lt Lte Plus Minus Mult Div Not BitNot
 %token LParen RParen LBrace RBrace Semicolon Comma
 

@@ -853,7 +853,8 @@ namespace mini_lang
                     string trueName = UniqueId(name);
                     CurrentScope[name] = new Variable(trueName, type, false, false);
 
-                    // Skip the initialization check
+                    // Skips the initialization check
+                    // TODO: do not initialize the value (skip "init" in codegen)
                     return new Declaration(type, new Identifier(trueName, type));
                 }
                 else

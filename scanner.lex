@@ -40,6 +40,7 @@ LogicOr     "|"{2}
 "while"         { return (int)Tokens.While; }
 "if"            { return (int)Tokens.If; }
 "else"          { return (int)Tokens.Else; }
+"break"         { return (int)Tokens.Break; }
 
 "=="            { return (int)Tokens.Eq; }
 "="             { return (int)Tokens.Assign; }

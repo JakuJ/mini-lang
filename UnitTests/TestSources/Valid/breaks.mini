@@ -1,0 +1,20 @@
+program {
+    while (true) {
+        break;
+    }
+    
+    while (true) break;
+    
+    while (true) {
+            break 1;
+        }
+        
+        while (true) break 1;
+        
+        while (true)
+            while (true)
+            {
+                break 1;
+                break 2;
+            }
+}

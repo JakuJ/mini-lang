@@ -1,0 +1,20 @@
+program {
+    break;
+    {
+        break;
+    }
+    if (true) {
+        break;
+    } else {
+        break;
+    }
+    
+    while (true) {
+        break -5;
+        break 0;
+        
+        while(true) {
+            break 3;
+        }
+    }
+}
