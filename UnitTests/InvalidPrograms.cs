@@ -20,8 +20,7 @@ namespace UnitTests
         public void InvalidProgram(string path, int atLeast)
         {
             var errs = 0;
-            // Assert.DoesNotThrow(() => { errs = CompilationErrors(path); });
-            errs = CompilationErrors(path);
+            Assert.DoesNotThrow(() => { errs = CompilationErrors(path); });
             Assert.GreaterOrEqual(errs, atLeast);
             Console.Error.WriteLine($"Passed, {errs} errors found");
         }
@@ -35,27 +34,30 @@ namespace UnitTests
             {
                 (string, int)[] cases =
                 {
-                    ("emptyfile.mini", 1),
-                    ("onetoomany.mini", 1),
-                    ("eof.mini", 1),
-                    ("undeclared.mini", 3),
-                    ("redeclaration.mini", 4),
-                    ("invalid_assignment.mini", 12),
-                    ("multi_assignment.mini", 5),
-                    ("no_conv2bool.mini", 1),
-                    ("identifiers.mini", 10),
-                    ("mixed_decls.mini", 3),
-                    ("multi_decls.mini", 2),
-                    ("case.mini", 5),
-                    ("string.mini", 6),
-                    ("missing_arg.mini", 5),
-                    ("math_ops.mini", 7),
                     ("bit_ops.mini", 5),
+                    ("case.mini", 5),
                     ("comp_ops.mini", 4),
-                    ("logic_ops.mini", 4),
-                    ("unary.mini", 5),
-                    ("while.mini", 4),
+                    ("emptyfile.mini", 1),
+                    ("eof.mini", 1),
+                    ("identifiers.mini", 10),
                     ("ifelse.mini", 3),
+                    ("invalid_assignment.mini", 12),
+                    ("logic_ops.mini", 4),
+                    ("math_ops.mini", 7),
+                    ("missing_arg.mini", 5),
+                    ("mixed_decls.mini", 3),
+                    ("mixed_inner_decls.mini", 1),
+                    ("multi_assignment.mini", 5),
+                    ("multi_decls.mini", 2),
+                    ("no_conv2bool.mini", 1),
+                    ("onetoomany.mini", 1),
+                    ("out_of_scope.mini", 1),
+                    ("redeclaration.mini", 5),
+                    ("string.mini", 6),
+                    ("unary.mini", 5),
+                    ("undeclared.mini", 3),
+                    ("uninitialized.mini", 2),
+                    ("while.mini", 4),
                 };
 
                 foreach ((string path, int expected) in cases)

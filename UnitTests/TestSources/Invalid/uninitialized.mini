@@ -1,0 +1,10 @@
+program {
+    int x;
+    {
+        int x;
+        int y;
+        
+        write x;
+        y + 2;
+    }
+}

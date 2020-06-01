@@ -42,10 +42,12 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="InvalidPrograms.cs" />
+        <Compile Include="InvalidPrograms.cs"/>
         <Compile Include="OutputPrograms.cs"/>
-        <Compile Include="ValidPrograms.cs" />
-        <Compile Include="Properties\AssemblyInfo.cs" />
+        <Compile Include="UnaryOpConstructor.cs"/>
+        <Compile Include="Utils.cs"/>
+        <Compile Include="ValidPrograms.cs"/>
+        <Compile Include="Properties\AssemblyInfo.cs"/>
     </ItemGroup>
     <ItemGroup>
         <Content Include="TestSources\**\*.mini">
@@ -208,6 +210,24 @@
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
         <Content Update="TestSources\Invalid\multi_decls.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Update="TestSources\Valid\shadowing.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Update="TestSources\Valid\block_decls.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Update="TestSources\Invalid\mixed_inner_decls.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Update="TestSources\Invalid\out_of_scope.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Update="TestSources\Outputs\scopes.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
+        <Content Update="TestSources\Invalid\uninitialized.mini">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
     </ItemGroup>

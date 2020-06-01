@@ -1,0 +1,28 @@
+program {
+    int x, y;
+    {
+        int x, y;
+        x = 5;
+        y = 2;
+        
+        {
+            int x, y;
+            x = 10;
+            y = -5;
+        }
+    }
+    x = 8;
+    y = 3;
+    {
+        double d;
+        {
+            double d;
+            {
+                double d;
+                {
+                    double d;
+                }
+            }
+        }
+    }
+}

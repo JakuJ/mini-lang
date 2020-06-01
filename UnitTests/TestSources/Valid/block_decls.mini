@@ -1,0 +1,12 @@
+program {
+    
+    int x, y;
+    
+    x = 5;
+    
+    {
+        int a, b;
+        
+        a = 6;
+    }
+}

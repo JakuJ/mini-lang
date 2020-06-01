@@ -1,0 +1,14 @@
+program {
+    int x;
+    write x; write " ";
+    
+    {
+        int x;
+        x = 5;
+        write x; write " ";
+    }
+    
+    write x; write " ";
+    x = 2;
+    write x;
+}

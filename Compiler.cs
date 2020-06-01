@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using GardensPoint;
 
@@ -41,7 +42,7 @@ namespace mini_lang
                 return attribs.Length > 0 ? attribs[0].Token : null;
             }
 
-            return "<??>";
+            return "<??>"; // TODO: throw an exception?
         }
     }
 
@@ -161,7 +162,7 @@ namespace mini_lang
                     break;
                 case OpType.Conv2Int:
                 case OpType.Conv2Double:
-                    Compiler.Error($".");
+                    Compiler.Error($"Programmer error: invalid type passed to UnaryOp constructor: {Op}", true);
                     break;
             }
         }
@@ -795,104 +796,46 @@ namespace mini_lang
         }
     }
 
-    [System.Diagnostics.CodeAnalysis.ExcludeFromCodeCoverage]
-    public class PrettyPrinter : INodeVisitor
+    #endregion
+
+    public partial class AstBuilder
     {
-        public void VisitProgram(Program program)
+        private class Variable
         {
-            Console.WriteLine("program");
-            program.MainBlock.Accept(this);
-        }
+            public readonly string Name;
+            public readonly VarType Type;
+            public bool Initialized;
+            public readonly bool CanBeShadowed;
 
-        public void VisitBlock(Block block)
-        {
-            Console.WriteLine("{");
-            block.Statements.ForEach(x => x.Accept(this));
-            Console.WriteLine("}");
-        }
-
-        public void VisitExprStatement(ExprStatement exprStatement)
-        {
-            exprStatement.Expression.Accept(this);
-            Console.WriteLine(";");
-        }
-
-        public void VisitIdentifier(Identifier identifier) => Console.Write(identifier.Name);
-
-        public void VisitDeclaration(Declaration d) => Console.WriteLine($"{d.Type.GetToken()} {d.Identifier.Name};");
-
-        public void VisitConstant(Constant constant) => Console.Write(constant.Value);
-
-        public void VisitAssignment(Assignment assignment)
-        {
-            Console.Write($"{assignment.Lhs.Name} = ");
-            assignment.Rhs.Accept(this);
-            Console.WriteLine(";");
-        }
-
-        public void VisitWrite(Write write)
-        {
-            Console.Write("write ");
-            write.Rhs.Accept(this);
-            Console.WriteLine(";");
-        }
-
-        public void VisitRead(Read read) => Console.WriteLine($"read {read.Target.Name}");
-
-        public void VisitReturn() => Console.WriteLine("return;");
-
-        public void VisitWhile(While @while)
-        {
-            Console.Write("while (");
-            @while.Condition.Accept(this);
-            Console.Write(") ");
-            @while.Body.Accept(this);
-        }
-
-        public void VisitIfElse(IfElse ifElse)
-        {
-            Console.Write("if (");
-            ifElse.Condition.Accept(this);
-            Console.Write(") ");
-            ifElse.ThenBlock.Accept(this);
-
-            if (ifElse.ElseBlock != null)
+            public Variable(string name, VarType type, bool initialized, bool canBeShadowed)
             {
-                Console.Write("else ");
-                ifElse.ElseBlock.Accept(this);
+                Name = name;
+                Type = type;
+                Initialized = initialized;
+                CanBeShadowed = canBeShadowed;
             }
         }
 
-        public void VisitUnaryOp(UnaryOp unaryOp)
-        {
-            Console.Write(unaryOp.Op.GetToken());
-            unaryOp.Rhs.Accept(this);
-        }
+        private static int _uniqueId;
 
-        private void VisitBinOp(BinOp binOp, string opcode)
-        {
-            binOp.Lhs.Accept(this);
-            Console.Write($" {opcode} ");
-            binOp.Rhs.Accept(this);
-        }
+        // TODO: assumes '_' will never be allowed in identifiers
+        private static string UniqueId(string id) => $"{id}_{_uniqueId++}";
 
-        public void VisitMathOp(MathOp mathOp) => VisitBinOp(mathOp, mathOp.Op.GetToken());
-        public void VisitCompOp(CompOp compOp) => VisitBinOp(compOp, compOp.Op.GetToken());
-        public void VisitLogicOp(LogicOp logicOp) => VisitBinOp(logicOp, logicOp.Op.GetToken());
-    }
+        private readonly Stack<Dictionary<string, Variable>> _scopeStack;
 
-    #endregion
+        private Dictionary<string, Variable> CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
 
-    public class AstBuilder
-    {
-        private readonly Dictionary<string, VarType> _declared;
-
-        public AstBuilder() => _declared = new Dictionary<string, VarType>();
+        public AstBuilder() => _scopeStack = new Stack<Dictionary<string, Variable>>();
 
         public Identifier CreateIdentifier(string name)
         {
-            if (_declared.ContainsKey(name))
-                return new Identifier(name, _declared[name]);
+            if (CurrentScope.ContainsKey(name))
+            {
+                if (!CurrentScope[name].Initialized)
+                    Compiler.Error($"Attempting to access uninitialized variable {name}");
+
+                return new Identifier(CurrentScope[name].Name, CurrentScope[name].Type);
+            }
 
             Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer.GetToken()}");
             return new Identifier(name, VarType.Integer);
@@ -900,16 +843,58 @@ namespace mini_lang
 
         public Declaration CreateDeclaration(string name, VarType type)
         {
-            if (_declared.ContainsKey(name))
+            if (CurrentScope.ContainsKey(name))
             {
-                Compiler.Error($"Redeclaration of variable {name}");
-                return null;
+                if (CurrentScope[name].CanBeShadowed)
+                {
+                    // Shadow an existing variable
+                    // Actually declares another one
+                    // TODO: issue a warning?
+                    string trueName = UniqueId(name);
+                    CurrentScope[name] = new Variable(trueName, type, false, false);
+
+                    // Skip the initialization check
+                    return new Declaration(type, new Identifier(trueName, type));
+                }
+                else
+                {
+                    Compiler.Error($"Redeclaration of variable {name}");
+                    return null;
+                }
+            }
+            else
+            {
+                // Declare a new variable
+                CurrentScope[name] = new Variable(name, type, _scopeStack.Count == 1, false);
+                return new Declaration(type, new Identifier(name, type));
+            }
+        }
+
+        public Assignment CreateAssignment(string name, IEvaluable rhs)
+        {
+            if (CurrentScope.ContainsKey(name))
+            {
+                CurrentScope[name].Initialized = true;
             }
 
-            // Declare a new Identifier
-            _declared[name] = type;
-            return new Declaration(type, CreateIdentifier(name));
+            return new Assignment(CreateIdentifier(name), rhs);
         }
+
+        public void PushScope()
+        {
+            if (CurrentScope != null)
+            {
+                var newScope = CurrentScope.ToDictionary(e => e.Key,
+                    e => new Variable(e.Value.Name, e.Value.Type, true, true));
+                _scopeStack.Push(newScope);
+            }
+            else
+            {
+                _scopeStack.Push(new Dictionary<string, Variable>());
+            }
+        }
+
+        public void PopScope() => _scopeStack.Pop();
     }
 
     #region Main
@@ -962,7 +947,8 @@ namespace mini_lang
             Error = (message, interrupt) =>
             {
                 // Hack (or is it?): make use of line tracking in the scanner
-                Console.Error.WriteLine($"{message} on line {scanner.lineNumber}");
+                string errorMessage = $"{message} on line {scanner.lineNumber}";
+                Console.Error.WriteLine(errorMessage);
 
                 // This is safe since we're modifying a static closure using a thread-static delegate
                 // IDE-specific warning suppression below:
@@ -970,7 +956,7 @@ namespace mini_lang
                 errors++;
 
                 if (interrupt) // TODO: Maybe unused
-                    throw new AstException("Fatal error, cannot analyze further");
+                    throw new AstException(errorMessage);
             };
 
             try
@@ -1012,9 +998,6 @@ namespace mini_lang
                 Console.Error.WriteLine($"{errors} errors found");
                 return 1;
             }
-
-            var printer = new PrettyPrinter();
-            program.Accept(printer);
 
             var generator = new CilBuilder(file);
             program.Accept(generator);

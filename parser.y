@@ -42,9 +42,10 @@ public IEvaluable eval;
 %type <strings> idents
 %%
 
-start: Program block                                { Program = new Program($2); } ;
+start: Program block                         { Program = new Program($2); } ;
 
-block: LBrace declarations statements RBrace        { $2.AddRange($3); $$ = new Block($2); };
+block: LBrace                                { builder.PushScope(); }
+       declarations statements RBrace        { $3.AddRange($4); $$ = new Block($3); builder.PopScope(); } ;
 
 declarations: declarations declaration              { $1.AddRange($2); $$ = $1; }
             |                                       { $$ = new List<INode>(); }
@@ -131,7 +132,7 @@ op_6: op_6 And op_5     { $$ = new LogicOp(LogicOp.OpType.And, $1, $3); }
     | op_6 Or op_5      { $$ = new LogicOp(LogicOp.OpType.Or, $1, $3); }
     | op_5 ;
     
-evaluable: Ident Assign evaluable   { $$ = new Assignment(builder.CreateIdentifier($1), $3); }
+evaluable: Ident Assign evaluable   { $$ = builder.CreateAssignment($1, $3); }
          | op_6 ;
 
 %%

@@ -19,5 +19,5 @@ program {
     
     write 1 * 2 + 3 + 4.0 * 5; write " ";
     write 1+2+3; write " ";
-    write 1*2*3; write " ";
+    write 1*2*3;
 }

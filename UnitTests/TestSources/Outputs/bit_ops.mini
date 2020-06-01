@@ -15,5 +15,5 @@ program {
     write g; write " ";
     
     g = 1 | 2 + 8 & 4;
-    write g; write " ";
+    write g;
 }

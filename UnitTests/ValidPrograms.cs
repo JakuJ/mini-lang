@@ -30,13 +30,13 @@ namespace UnitTests
 
             Assert.Zero(errs);
 
-            var printer = new PrettyPrinter();
-            Assert.DoesNotThrow(() => { program.Accept(printer); });
-
             var codeGen = new CilBuilder(Path.Combine(TestContext.CurrentContext.WorkDirectory, path));
             Assert.DoesNotThrow(() => { program.Accept(codeGen); });
 
-            // TODO: Compile and run peverify
+            string ilPath = codeGen.OutputFile;
+
+            Utils.Link(ilPath);
+            Utils.Verify(Path.ChangeExtension(ilPath, "exe"));
         }
     }
 
