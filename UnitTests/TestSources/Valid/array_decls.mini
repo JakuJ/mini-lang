@@ -1,0 +1,5 @@
+program {
+    double[] tabd1; // deklaracja 1-wymiarowej tablicy o elementach typu double
+    int[,,] tabi3; // deklaracja 3-wymiarowej tablicy o elementach typu int
+    int[] tx, ty; // deklaracja dwóch 1-wym. tablic o elementach typu int
+}

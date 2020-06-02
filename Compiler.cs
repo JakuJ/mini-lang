@@ -53,12 +53,70 @@ namespace mini_lang
     /// <summary>
     /// Defines data types available in the language.
     /// </summary>
-    public enum VarType
+    public class VarType
     {
-        [Token("int")] Integer,
-        [Token("double")] Double,
-        [Token("bool")] Bool,
-        [Token("string")] String // TODO: Not a *variable* type
+        private readonly string _token;
+        private VarType(string token) => _token = token;
+
+        public static VarType Integer => IntegerT.Instance;
+        public static VarType Double = DoubleT.Instance;
+        public static VarType Bool = BoolT.Instance;
+        public static VarType String = StringT.Instance;
+
+        public override string ToString() => _token;
+
+        public sealed class IntegerT : VarType
+        {
+            public static VarType Instance { get; } = new IntegerT();
+
+            private IntegerT() : base("int")
+            {
+            }
+        }
+
+        public sealed class DoubleT : VarType
+        {
+            public static VarType Instance { get; } = new DoubleT();
+
+            private DoubleT() : base("double")
+            {
+            }
+        }
+
+        public sealed class BoolT : VarType
+        {
+            public static VarType Instance { get; } = new BoolT();
+
+            private BoolT() : base("bool")
+            {
+            }
+        }
+
+        public sealed class StringT : VarType
+        {
+            public static VarType Instance { get; } = new StringT();
+
+            private StringT() : base("string")
+            {
+            }
+        }
+
+        public sealed class ArrayT : VarType
+        {
+            public readonly int Dimensions;
+            public readonly VarType Type;
+
+            public ArrayT(VarType type, int dimensions) : base($"{type._token}[{dimensions}]")
+            {
+                Type = type;
+                Dimensions = dimensions;
+
+                if (dimensions > 32)
+                {
+                    Compiler.Error("Cannot declare array of more than 32 dimensions");
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -179,19 +237,19 @@ namespace mini_lang
 
             switch (convertTo)
             {
-                case VarType.Integer:
+                case VarType.IntegerT _:
                     Op = OpType.Conv2Int;
                     break;
-                case VarType.Double:
+                case VarType.DoubleT _:
                     Op = OpType.Conv2Double;
                     break;
                 default:
-                    Compiler.Error($"Explicit conversion to {convertTo.GetToken()} not supported");
+                    Compiler.Error($"Explicit conversion to {convertTo} not supported");
                     break;
             }
         }
 
-        private void InvalidType() => Compiler.Error($"Invalid operand type: {Op.GetToken()}{Rhs.Type.GetToken()}");
+        private void InvalidType() => Compiler.Error($"Invalid operand type: {Op.GetToken()}{Rhs.Type}");
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitUnaryOp(this);
     }
@@ -214,7 +272,7 @@ namespace mini_lang
         public abstract void Accept(INodeVisitor visitor);
 
         protected void InvalidType(string op) =>
-            Compiler.Error($"Invalid operand types: {Lhs.Type.GetToken()} {op} {Rhs.Type.GetToken()}");
+            Compiler.Error($"Invalid operand types: {Lhs.Type} {op} {Rhs.Type}");
     }
 
     public class MathOp : BinOp
@@ -278,7 +336,7 @@ namespace mini_lang
         }
 
         public readonly OpType Op;
-        public VarType? CastTo { get; }
+        public VarType CastTo { get; }
 
         public CompOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
         {
@@ -348,7 +406,7 @@ namespace mini_lang
                 Conversion = true;
             else if (Lhs.Type != Rhs.Type)
                 Compiler.Error(
-                    $"Cannot assign value of type {Rhs.Type.GetToken()} to a variable of type {Lhs.Type.GetToken()}");
+                    $"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitAssignment(this);
@@ -434,7 +492,7 @@ namespace mini_lang
 
             if (condition.Type != VarType.Bool)
                 Compiler.Error(
-                    $"While loop condition must evaluate to {VarType.Bool.GetToken()}, not {condition.Type.GetToken()}");
+                    $"While loop condition must evaluate to {VarType.Bool}, not {condition.Type}");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitWhile(this);
@@ -544,13 +602,13 @@ namespace mini_lang
         {
             switch (declaration.Type)
             {
-                case VarType.Bool:
+                case VarType.BoolT _:
                     EmitLine($".locals init ( bool {declaration.Identifier.Name} )");
                     break;
-                case VarType.Integer:
+                case VarType.IntegerT _:
                     EmitLine($".locals init ( int32 {declaration.Identifier.Name} )");
                     break;
-                case VarType.Double:
+                case VarType.DoubleT _:
                     EmitLine($".locals init ( float64 {declaration.Identifier.Name} )");
                     break;
             }
@@ -560,16 +618,16 @@ namespace mini_lang
         {
             switch (constant.Type)
             {
-                case VarType.Integer:
+                case VarType.IntegerT _:
                     EmitLine($"ldc.i4 {constant.Value}");
                     break;
-                case VarType.Double:
+                case VarType.DoubleT _:
                     EmitLine($"ldc.r8 {constant.Value}");
                     break;
-                case VarType.Bool:
+                case VarType.BoolT _:
                     EmitLine(constant.Value == "true" ? "ldc.i4.1" : "ldc.i4.0");
                     break;
-                case VarType.String:
+                case VarType.StringT _:
                     EmitLine($"ldstr {constant.Value}");
                     break;
             }
@@ -579,11 +637,11 @@ namespace mini_lang
         {
             switch (targetType)
             {
-                case VarType.Double:
+                case VarType.DoubleT _:
                     EmitLine("conv.r8");
                     break;
-                case VarType.Bool: // TODO: Most likely unused
-                case VarType.Integer:
+                case VarType.BoolT _: // TODO: Most likely unused
+                case VarType.IntegerT _:
                     EmitLine("conv.i4");
                     break;
             }
@@ -604,11 +662,11 @@ namespace mini_lang
         {
             switch (write.Rhs.Type)
             {
-                case VarType.Integer:
+                case VarType.IntegerT _:
                     write.Rhs.Accept(this);
                     EmitLine("call void [mscorlib]System.Console::Write(int32)");
                     break;
-                case VarType.Double:
+                case VarType.DoubleT _:
                     EmitLine(
                         "call class [mscorlib]System.Globalization.CultureInfo class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
                     EmitLine("ldstr \"{0:0.000000}\"");
@@ -619,11 +677,11 @@ namespace mini_lang
                     EmitLine("call string string::Format(class [mscorlib]System.IFormatProvider, string, object)");
                     EmitLine("call void [mscorlib]System.Console::Write(string)");
                     break;
-                case VarType.Bool:
+                case VarType.BoolT _:
                     write.Rhs.Accept(this);
                     EmitLine("call void [mscorlib]System.Console::Write(bool)");
                     break;
-                case VarType.String:
+                case VarType.StringT _:
                     write.Rhs.Accept(this);
                     EmitLine("call void [mscorlib]System.Console::Write(string)");
                     break;
@@ -637,13 +695,13 @@ namespace mini_lang
 
             switch (read.Target.Type)
             {
-                case VarType.Integer:
+                case VarType.IntegerT _:
                     EmitLine("call bool int32::TryParse(string, [out] int32&)");
                     break;
-                case VarType.Double:
+                case VarType.DoubleT _:
                     EmitLine("call bool float64::TryParse(string, [out] float64&)");
                     break;
-                case VarType.Bool:
+                case VarType.BoolT _:
                     EmitLine("call bool bool::TryParse(string, [out] bool&)");
                     break;
             }
@@ -868,7 +926,7 @@ namespace mini_lang
                 return new Identifier(CurrentScope[name].Name, CurrentScope[name].Type);
             }
 
-            Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer.GetToken()}");
+            Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer}");
             return new Identifier(name, VarType.Integer);
         }
 

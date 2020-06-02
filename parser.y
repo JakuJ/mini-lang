@@ -18,6 +18,7 @@
 %union
 {
     public string str;
+    public int num;
     public List<string> strings;
     public VarType type;
     public INode node;
@@ -36,7 +37,9 @@
 %type <node>    block statement if while oneliner write read break
 %type <eval>    value_0 writable op_1 op_2 op_3 op_4 op_5 op_6 evaluable
 %type <nodes>   declaration declarations statements
+%type <type>    type
 %type <strings> idents
+%type <num>     dims
 %%
 
 start: Program block                         { Program = new Program($2); } ;
@@ -52,12 +55,20 @@ statements: statements statement    { $1.Add($2); $$ = $1; }
           |                         { $$ = new List<INode>(); } 
           ;
           
-declaration: Type idents Ident Semicolon    { $$ = $2.Append($3).Select(x => builder.CreateDeclaration(x, $1) as INode).ToList(); }
+declaration: type idents Ident Semicolon    { $$ = $2.Append($3).Select(x => builder.CreateDeclaration(x, $1) as INode).ToList(); }
            | error Semicolon                { yyerrok(); $$ = new List<INode>(); }
            | error EOF
            | error                          { yyerrok(); $$ = new List<INode>(); }
            ;
-           
+
+type: Type
+    | Type LBracket dims RBracket { $$ = new VarType.ArrayT($1, $3); }
+    ;
+    
+dims: dims Comma    { $$ = $1 + 1; }
+    |               { $$ = 1; }
+    ;
+
 idents: idents Ident Comma          { $1.Add($2); $$ = $1; }
       |                             { $$ = new List<string>(); }
       ;

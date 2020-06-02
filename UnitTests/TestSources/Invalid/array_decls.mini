@@ -1,0 +1,7 @@
+program {
+    int [,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,,] arr0; // 33-dimensional
+    int [5] arr;
+    int [[]] arr2;
+    int arr3[];
+    int [];
+}
