@@ -1,0 +1,20 @@
+program {
+
+    int[] xs, ys;
+    int i;
+    
+    create xs[5];
+    create ys[5];
+    
+    while (i < 5) {
+        xs[i] = ys[i] = i;
+        i = i + 1;
+    }
+    
+    while (i > 0) {
+        i = i - 1;
+        write xs[i];
+        write ys[i];
+        write " ";
+    }
+}

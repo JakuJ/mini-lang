@@ -1,0 +1,17 @@
+program {
+    int[] xs;
+    double[,] ds;
+    bool z;
+    
+    xs[1] = 5; // not created
+    z[1] = false;
+    
+    create ds [2,2];
+    ds[2] = 5.4;
+    ds[2, 0] = false;
+    ds[2,3,4] = 5.4;
+    
+    ds[0, 0] = ds[0];
+    ds[0, 0] = ds[0,1,2];
+    ds[0, 0] = z[5];
+}

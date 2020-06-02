@@ -51,6 +51,7 @@ namespace UnitTests
             {
                 (string, string)[] cases =
                 {
+                    ("arrays.mini", "44 33 22 11 00 "),
                     ("bit_ops.mini", "15 40.000000 0 3"),
                     ("break.mini", "100 20"),
                     ("break_n.mini", "100 20"),

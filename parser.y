@@ -38,7 +38,7 @@
 %type <node>    block statement if while oneliner write read break create
 %type <nodes>   declaration declarations statements
 %type <eval>    value_0 writable op_1 op_2 op_3 op_4 op_5 op_6 evaluable
-%type <evals>   sizes
+%type <evals>   sizes indexing
 %type <type>    type
 %type <strings> idents
 %type <num>     dims
@@ -109,7 +109,9 @@ break: Break            { $$ = builder.CreateBreak(new Constant("1", VarType.Int
      | Break LitInt     { $$ = builder.CreateBreak($2); }
      ;
      
-create: Create Ident LBracket sizes evaluable RBracket { $4.Add($5); $$ = builder.CreateArrayCreation($2, $4); } ;
+create: Create Ident indexing   { $$ = builder.CreateArrayCreation($2, $3); } ;
+
+indexing: LBracket sizes evaluable RBracket { $2.Add($3); $$ = $2; } ;
 
 sizes: sizes evaluable Comma    { $1.Add($2); $$ = $1; }
      |                          { $$ = new List<IEvaluable>(); }
@@ -121,9 +123,10 @@ writable: evaluable
 
 // Operators
 
-value_0: Ident          { $$ = builder.CreateIdentifier($1); }
+value_0: Ident                  { $$ = builder.CreateIdentifier($1); }
+       | Ident indexing         { $$ = new Indexing(builder.CreateIdentifier($1), $2); }
        | LitInt
-       | LitDouble 
+       | LitDouble
        | LitBool ;
 
 op_1: Minus op_1                { $$ = new UnaryOp(UnaryOp.OpType.IntNegate, $2); }
@@ -157,7 +160,8 @@ op_6: op_6 And op_5     { $$ = new LogicOp(LogicOp.OpType.And, $1, $3); }
     | op_6 Or op_5      { $$ = new LogicOp(LogicOp.OpType.Or, $1, $3); }
     | op_5 ;
     
-evaluable: Ident Assign evaluable   { $$ = builder.CreateAssignment($1, $3); }
+evaluable: Ident Assign evaluable               { $$ = builder.CreateAssignment($1, $3); }
+         | Ident indexing Assign evaluable      { $$ = new ArrayAssignment(builder.CreateIdentifier($1), $2, $4); }
          | op_6 ;
 
 %%

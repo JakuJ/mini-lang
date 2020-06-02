@@ -104,11 +104,11 @@ namespace mini_lang
         public sealed class ArrayT : VarType
         {
             public readonly int Dimensions;
-            public readonly VarType Type;
+            public readonly VarType ElemType;
 
-            public ArrayT(VarType type, int dimensions) : base($"{type._token}[{dimensions}]")
+            public ArrayT(VarType elemType, int dimensions) : base($"{elemType._token}[{dimensions}]")
             {
-                Type = type;
+                ElemType = elemType;
                 Dimensions = dimensions;
 
                 if (dimensions > 32)
@@ -159,7 +159,7 @@ namespace mini_lang
             Type = type;
         }
 
-        void INode.Accept(INodeVisitor visitor) => visitor.VisitIdentifier(this);
+        public void Accept(INodeVisitor visitor) => visitor.VisitIdentifier(this);
     }
 
     public class Constant : IEvaluable
@@ -402,14 +402,48 @@ namespace mini_lang
             Lhs = identifier;
             Rhs = rhs;
 
-            if (Lhs.Type == VarType.Double && Rhs.Type == VarType.Integer)
+            if (Type == VarType.Double && Rhs.Type == VarType.Integer)
                 Conversion = true;
-            else if (Lhs.Type != Rhs.Type)
+            else if (Type != Rhs.Type)
                 Compiler.Error(
-                    $"Cannot assign value of type {Rhs.Type} to a variable of type {Lhs.Type}");
+                    $"Cannot assign value of type {Rhs.Type} to a variable of type {Type}");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitAssignment(this);
+    }
+
+    public class ArrayAssignment : IEvaluable
+    {
+        public Identifier Lhs { get; }
+        public List<IEvaluable> Indices { get; }
+        public IEvaluable Rhs { get; }
+        public bool Conversion { get; }
+
+        public VarType Type { get; }
+
+        public ArrayAssignment(Identifier identifier, List<IEvaluable> indices, IEvaluable rhs)
+        {
+            Lhs = identifier;
+            Indices = indices;
+            Rhs = rhs;
+
+            if (identifier.Type is VarType.ArrayT arr)
+            {
+                Type = arr.ElemType;
+
+                if (arr.Dimensions != indices.Count)
+                    Compiler.Error($"Invalid {Indices.Count}D index for array of {arr.Dimensions} dimensions");
+
+                if (Type == VarType.Double && Rhs.Type == VarType.Integer)
+                    Conversion = true;
+                else if (Type != Rhs.Type)
+                    Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {arr}");
+            }
+            else
+                Compiler.Error($"Cannot index into {identifier.Name} - not an array");
+        }
+
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitArrayAssignment(this);
     }
 
     #endregion
@@ -450,7 +484,7 @@ namespace mini_lang
 
             if (identifier.Type is VarType.ArrayT arr)
             {
-                ElemT = arr.Type;
+                ElemT = arr.ElemType;
                 if (arr.Dimensions != Sizes.Count)
                     Compiler.Error($"Invalid array creation: {Sizes.Count} sizes provided, {arr.Dimensions} expected");
             }
@@ -465,6 +499,31 @@ namespace mini_lang
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitArrayCreation(this);
+    }
+
+    public class Indexing : IEvaluable
+    {
+        public Identifier Identifier;
+        public readonly List<IEvaluable> Indices;
+
+        public VarType Type { get; }
+
+        public Indexing(Identifier identifier, List<IEvaluable> indices)
+        {
+            Identifier = identifier;
+            Indices = indices;
+
+            if (Identifier.Type is VarType.ArrayT arr)
+            {
+                Type = arr.ElemType;
+                if (arr.Dimensions != Indices.Count)
+                    Compiler.Error($"Invalid {Indices.Count}D index for array of {arr.Dimensions} dimensions");
+            }
+            else
+                Compiler.Error($"{identifier.Name} is not of array type");
+        }
+
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitIndexing(this);
     }
 
     public class Write : INode
@@ -569,6 +628,8 @@ namespace mini_lang
         void VisitExprStatement(ExprStatement exprStatement);
         void VisitDeclaration(Declaration declaration);
         void VisitAssignment(Assignment assignment);
+        void VisitArrayAssignment(ArrayAssignment arrayAssignment);
+        void VisitIndexing(Indexing indexing);
         void VisitArrayCreation(ArrayCreation arrayCreation);
         void VisitWrite(Write write);
         void VisitRead(Read read);
@@ -649,12 +710,13 @@ namespace mini_lang
                 {
                     if (arr.Dimensions == 1)
                     {
-                        EmitLine($".locals init ( {_valueTypes[arr.Type]}[] {declaration.Identifier.Name} )");
+                        EmitLine($".locals init ( {_valueTypes[arr.ElemType]}[] {declaration.Identifier.Name} )");
                     }
                     else
                     {
                         string zeros = string.Join(",", Enumerable.Repeat("0...", arr.Dimensions));
-                        EmitLine($".locals init ( {_valueTypes[arr.Type]}[{zeros}] {declaration.Identifier.Name} )");
+                        EmitLine(
+                            $".locals init ( {_valueTypes[arr.ElemType]}[{zeros}] {declaration.Identifier.Name} )");
                     }
 
                     break;
@@ -700,10 +762,69 @@ namespace mini_lang
             assignment.Rhs.Accept(this);
 
             if (assignment.Conversion)
-                EmitConversion(assignment.Lhs.Type);
+                EmitConversion(assignment.Type);
 
             EmitLine("dup");
             EmitLine($"stloc {assignment.Lhs.Name}");
+        }
+
+        public void VisitArrayAssignment(ArrayAssignment ars)
+        {
+            // TODO: dup?
+            ars.Rhs.Accept(this);
+            if (ars.Conversion)
+                EmitConversion(ars.Type);
+
+            ars.Lhs.Accept(this);
+            ars.Indices.ForEach(ix => ix.Accept(this));
+
+            ars.Rhs.Accept(this);
+            if (ars.Conversion)
+                EmitConversion(ars.Type);
+
+            int dim = ars.Indices.Count;
+            if (dim == 1)
+            {
+                var shorts = new Dictionary<VarType, string>
+                {
+                    {VarType.Integer, "i4"},
+                    {VarType.Double, "r8"},
+                    {VarType.Bool, "i1"},
+                };
+                EmitLine($"stelem.{shorts[ars.Type]}");
+            }
+            else
+            {
+                var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
+                var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
+                EmitLine($"call instance void {_valueTypes[ars.Type]}[{zeros}]::Set({ints}, {_valueTypes[ars.Type]})");
+            }
+        }
+
+        public void VisitIndexing(Indexing indexing)
+        {
+            indexing.Identifier.Accept(this);
+            indexing.Indices.ForEach(x => x.Accept(this));
+
+            int dim = indexing.Indices.Count;
+
+            if (dim == 1)
+            {
+                var shorts = new Dictionary<VarType, string>
+                {
+                    {VarType.Integer, "i4"},
+                    {VarType.Double, "r8"},
+                    {VarType.Bool, "i1"},
+                };
+                EmitLine($"ldelem.{shorts[indexing.Type]}");
+            }
+            else
+            {
+                string tc = _valueTypes[indexing.Type];
+                var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
+                var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
+                EmitLine($"call instance {tc} {tc}[{zeros}]::Get({ints})");
+            }
         }
 
         public void VisitArrayCreation(ArrayCreation arrayCreation)
@@ -727,6 +848,8 @@ namespace mini_lang
                 var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
                 EmitLine($"newobj instance void {_valueTypes[arrayCreation.ElemT]}[{zeros}]::.ctor({ints})");
             }
+
+            EmitLine($"stloc {arrayCreation.Identifier.Name}");
         }
 
         public void VisitWrite(Write write)
@@ -1010,7 +1133,7 @@ namespace mini_lang
             }
 
             // Declare a new variable
-            CurrentScope[name] = new Variable(name, type, _scopeStack.Count == 1, false);
+            CurrentScope[name] = new Variable(name, type, _scopeStack.Count == 1 && !(type is VarType.ArrayT), false);
             return new Declaration(type, new Identifier(name, type));
         }
 
