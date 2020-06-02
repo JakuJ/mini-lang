@@ -438,6 +438,12 @@ namespace mini_lang
                     Conversion = true;
                 else if (Type != Rhs.Type)
                     Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {arr}");
+
+                Indices.ForEach(size =>
+                {
+                    if (size.Type != VarType.Integer) // TODO: allow implicit conversions?
+                        Compiler.Error($"{size.Type} invalid as an array index – expected {VarType.Integer}");
+                });
             }
             else
                 Compiler.Error($"Cannot index into {identifier.Name} - not an array");
@@ -518,6 +524,12 @@ namespace mini_lang
                 Type = arr.ElemType;
                 if (arr.Dimensions != Indices.Count)
                     Compiler.Error($"Invalid {Indices.Count}D index for array of {arr.Dimensions} dimensions");
+
+                Indices.ForEach(size =>
+                {
+                    if (size.Type != VarType.Integer) // TODO: allow implicit conversions?
+                        Compiler.Error($"{size.Type} invalid as an array index – expected {VarType.Integer}");
+                });
             }
             else
                 Compiler.Error($"{identifier.Name} is not of array type");
