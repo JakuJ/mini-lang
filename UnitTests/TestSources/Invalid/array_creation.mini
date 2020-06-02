@@ -1,0 +1,24 @@
+program {
+    bool[] t1;
+    double[,] t2;
+    
+    create t1 [];
+    create t1 [5, 7]; // too many dims
+    create t2 [2]; // too few dims
+    create t2 [1,];
+    create t2 [,1];
+    create t1 [5.8];
+    create t1 [true];
+    create t1 ["what"];
+    create t1 [t1];
+    
+    {
+        int x;
+        double d;
+        bool z;
+        
+        create x [1];
+        create d [1];
+        create z [1];
+    }
+}

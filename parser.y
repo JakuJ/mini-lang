@@ -24,6 +24,7 @@
     public INode node;
     public List<INode> nodes;
     public IEvaluable eval;
+    public List<IEvaluable> evals;
 }
 
 %token Program If Else While Read Write Return Break Continue Create
@@ -34,9 +35,10 @@
 %token <str>    String Ident
 %token <eval>   LitInt LitDouble LitBool
 
-%type <node>    block statement if while oneliner write read break
-%type <eval>    value_0 writable op_1 op_2 op_3 op_4 op_5 op_6 evaluable
+%type <node>    block statement if while oneliner write read break create
 %type <nodes>   declaration declarations statements
+%type <eval>    value_0 writable op_1 op_2 op_3 op_4 op_5 op_6 evaluable
+%type <evals>   sizes
 %type <type>    type
 %type <strings> idents
 %type <num>     dims
@@ -92,19 +94,26 @@ if: If LParen evaluable RParen statement                  { $$ = new IfElse($3, 
          
 oneliner: evaluable     { $$ = new ExprStatement($1); } // discard created value
         | write
+        | create
         | read
         | break
         | Continue      { $$ = builder.CreateContinue(); }
         | Return        { $$ = new Return(); }
         ;
 
-break: Break            { $$ = builder.CreateBreak(new Constant("1", VarType.Integer)); }
-     | Break LitInt     { $$ = builder.CreateBreak($2); }
-     ;
-
 read: Read Ident                { $$ = new Read(builder.CreateIdentifier($2)); } ;
 
 write: Write writable           { $$ = new Write($2); } ;
+
+break: Break            { $$ = builder.CreateBreak(new Constant("1", VarType.Integer)); }
+     | Break LitInt     { $$ = builder.CreateBreak($2); }
+     ;
+     
+create: Create Ident LBracket sizes evaluable RBracket { $4.Add($5); $$ = builder.CreateArrayCreation($2, $4); } ;
+
+sizes: sizes evaluable Comma    { $1.Add($2); $$ = $1; }
+     |                          { $$ = new List<IEvaluable>(); }
+     ;
 
 writable: evaluable
         | String                { $$ = new Constant($1, VarType.String); }

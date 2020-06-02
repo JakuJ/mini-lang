@@ -437,6 +437,36 @@ namespace mini_lang
         void INode.Accept(INodeVisitor visitor) => visitor.VisitDeclaration(this);
     }
 
+    public class ArrayCreation : INode
+    {
+        public Identifier Identifier;
+        public VarType ElemT { get; }
+        public readonly List<IEvaluable> Sizes;
+
+        public ArrayCreation(Identifier identifier, List<IEvaluable> sizes)
+        {
+            Identifier = identifier;
+            Sizes = sizes;
+
+            if (identifier.Type is VarType.ArrayT arr)
+            {
+                ElemT = arr.Type;
+                if (arr.Dimensions != Sizes.Count)
+                    Compiler.Error($"Invalid array creation: {Sizes.Count} sizes provided, {arr.Dimensions} expected");
+            }
+            else
+                Compiler.Error($"{identifier.Name} is not of array type");
+
+            Sizes.ForEach(size =>
+            {
+                if (size.Type != VarType.Integer) // TODO: allow implicit conversions?
+                    Compiler.Error($"{size.Type} invalid as an array size – expected {VarType.Integer}");
+            });
+        }
+
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitArrayCreation(this);
+    }
+
     public class Write : INode
     {
         public readonly IEvaluable Rhs;
@@ -539,6 +569,7 @@ namespace mini_lang
         void VisitExprStatement(ExprStatement exprStatement);
         void VisitDeclaration(Declaration declaration);
         void VisitAssignment(Assignment assignment);
+        void VisitArrayCreation(ArrayCreation arrayCreation);
         void VisitWrite(Write write);
         void VisitRead(Read read);
         void VisitWhile(While @while);
@@ -559,6 +590,13 @@ namespace mini_lang
         private readonly StreamWriter _sw;
         private Stack<(string, string)> _loopLabels = new Stack<(string, string)>();
         private int _labelNum;
+
+        private Dictionary<VarType, string> _valueTypes = new Dictionary<VarType, string>
+        {
+            {VarType.Integer, "int32"},
+            {VarType.Double, "float64"},
+            {VarType.Bool, "bool"}
+        };
 
         /// <summary>
         /// A computed property used for generating unique labels.
@@ -603,14 +641,24 @@ namespace mini_lang
             switch (declaration.Type)
             {
                 case VarType.BoolT _:
-                    EmitLine($".locals init ( bool {declaration.Identifier.Name} )");
-                    break;
                 case VarType.IntegerT _:
-                    EmitLine($".locals init ( int32 {declaration.Identifier.Name} )");
-                    break;
                 case VarType.DoubleT _:
-                    EmitLine($".locals init ( float64 {declaration.Identifier.Name} )");
+                    EmitLine($".locals init ( {_valueTypes[declaration.Type]} {declaration.Identifier.Name} )");
                     break;
+                case VarType.ArrayT arr:
+                {
+                    if (arr.Dimensions == 1)
+                    {
+                        EmitLine($".locals init ( {_valueTypes[arr.Type]}[] {declaration.Identifier.Name} )");
+                    }
+                    else
+                    {
+                        string zeros = string.Join(",", Enumerable.Repeat("0...", arr.Dimensions));
+                        EmitLine($".locals init ( {_valueTypes[arr.Type]}[{zeros}] {declaration.Identifier.Name} )");
+                    }
+
+                    break;
+                }
             }
         }
 
@@ -658,6 +706,29 @@ namespace mini_lang
             EmitLine($"stloc {assignment.Lhs.Name}");
         }
 
+        public void VisitArrayCreation(ArrayCreation arrayCreation)
+        {
+            int dim = arrayCreation.Sizes.Count;
+            arrayCreation.Sizes.ForEach(node => node.Accept(this));
+
+            if (dim == 1)
+            {
+                var boxedTypes = new Dictionary<VarType, string>
+                {
+                    {VarType.Integer, "Int32"},
+                    {VarType.Double, "Double"},
+                    {VarType.Bool, "Boolean"}
+                };
+                EmitLine($"newarr [mscorlib]System.{boxedTypes[arrayCreation.ElemT]}");
+            }
+            else
+            {
+                var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
+                var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
+                EmitLine($"newobj instance void {_valueTypes[arrayCreation.ElemT]}[{zeros}]::.ctor({ints})");
+            }
+        }
+
         public void VisitWrite(Write write)
         {
             switch (write.Rhs.Type)
@@ -692,7 +763,6 @@ namespace mini_lang
         {
             EmitLine("call string class [mscorlib]System.Console::ReadLine()");
             EmitLine($"ldloca {read.Target.Name}");
-
             switch (read.Target.Type)
             {
                 case VarType.IntegerT _:
@@ -716,15 +786,12 @@ namespace mini_lang
         public void VisitWhile(While @while)
         {
             string startWhile = Label, endWhile = Label;
-
             EmitLine($"{startWhile}:");
             @while.Condition.Accept(this);
             EmitLine($"brfalse {endWhile}");
-
             _loopLabels.Push((startWhile, endWhile));
             @while.Body.Accept(this);
             _loopLabels.Pop();
-
             EmitLine($"br {startWhile}");
             EmitLine($"{endWhile}:");
         }
@@ -732,11 +799,9 @@ namespace mini_lang
         public void VisitIfElse(IfElse ifElse)
         {
             string elseLabel = Label;
-
             ifElse.Condition.Accept(this);
             EmitLine($"brfalse {elseLabel}");
             ifElse.ThenBlock.Accept(this);
-
             if (ifElse.ElseBlock != null)
             {
                 string endLabel = Label;
@@ -745,6 +810,7 @@ namespace mini_lang
                 ifElse.ElseBlock.Accept(this);
                 EmitLine($"{endLabel}:");
             }
+
             else
             {
                 EmitLine($"{elseLabel}:");
@@ -754,15 +820,12 @@ namespace mini_lang
         public void VisitMathOp(MathOp mathOp)
         {
             mathOp.Lhs.Accept(this);
-
             if (mathOp.Conversion && mathOp.Lhs.Type != mathOp.Type)
                 EmitConversion(mathOp.Type);
-
             mathOp.Rhs.Accept(this);
-
             if (mathOp.Conversion && mathOp.Rhs.Type != mathOp.Type)
-                EmitConversion(mathOp.Type);
 
+                EmitConversion(mathOp.Type);
             switch (mathOp.Op)
             {
                 case MathOp.OpType.Add:
@@ -789,16 +852,12 @@ namespace mini_lang
         public void VisitCompOp(CompOp compOp)
         {
             compOp.Lhs.Accept(this);
-
             if (compOp.CastTo is VarType type && compOp.Lhs.Type != type)
                 EmitConversion(type);
-
-
             compOp.Rhs.Accept(this);
-
             if (compOp.CastTo is VarType type2 && compOp.Rhs.Type != type2)
-                EmitConversion(type2);
 
+                EmitConversion(type2);
             switch (compOp.Op)
             {
                 case CompOp.OpType.Eq:
@@ -836,7 +895,6 @@ namespace mini_lang
         public void VisitUnaryOp(UnaryOp unaryOp)
         {
             unaryOp.Rhs.Accept(this);
-
             switch (unaryOp.Op)
             {
                 case UnaryOp.OpType.BitwiseNot:
@@ -959,11 +1017,17 @@ namespace mini_lang
         public Assignment CreateAssignment(string name, IEvaluable rhs)
         {
             if (CurrentScope.ContainsKey(name))
-            {
                 CurrentScope[name].Initialized = true;
-            }
 
             return new Assignment(CreateIdentifier(name), rhs);
+        }
+
+        public ArrayCreation CreateArrayCreation(string name, List<IEvaluable> sizes)
+        {
+            if (CurrentScope.ContainsKey(name))
+                CurrentScope[name].Initialized = true;
+
+            return new ArrayCreation(CreateIdentifier(name), sizes);
         }
 
         public Break CreateBreak(IEvaluable rhs)

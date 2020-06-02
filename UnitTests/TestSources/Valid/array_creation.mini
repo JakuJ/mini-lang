@@ -1,0 +1,17 @@
+program {
+    int size;
+    int[] xs;
+    double [,] ys;
+    bool [,,] zs;
+
+    size = 6;
+    
+    create xs [5];
+    create xs [size];
+    create xs [1 + 2 / 3 * 4];
+    
+    create ys[4, 4 + 5];
+    create zs[4 - 1, size / 2, size];
+    
+    create zs[-1, -5, -42]; // legal, but a runtime error
+}

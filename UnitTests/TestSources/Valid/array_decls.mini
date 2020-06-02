@@ -2,4 +2,11 @@ program {
     double[] tabd1; // deklaracja 1-wymiarowej tablicy o elementach typu double
     int[,,] tabi3; // deklaracja 3-wymiarowej tablicy o elementach typu int
     int[] tx, ty; // deklaracja dwóch 1-wym. tablic o elementach typu int
+    
+    // Przesłanianie tablic
+    {
+        double[] tabd1;
+        int[,,] tabi3;
+        int[] tx, ty;
+    }
 }

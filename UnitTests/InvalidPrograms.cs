@@ -34,6 +34,7 @@ namespace UnitTests
             {
                 (string, int)[] cases =
                 {
+                    ("array_creation.mini", 12),
                     ("array_decls.mini", 5),
                     ("bit_ops.mini", 5),
                     ("break.mini", 4),
