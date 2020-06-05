@@ -56,8 +56,8 @@ namespace mini_lang
     public class VarType
     {
         public static VarType Integer { get; } = new IntegerT();
-        public static VarType Double { get; } = new DoubleT();
-        public static VarType Bool { get; } = new BoolT();
+        public static VarType Double  { get; } = new DoubleT();
+        public static VarType Bool    { get; } = new BoolT();
 
         private readonly string _token;
 
@@ -81,12 +81,12 @@ namespace mini_lang
 
         public sealed class ArrayT : VarType
         {
-            public int Dimensions { get; }
-            public VarType ElemType { get; }
+            public int     Dimensions { get; }
+            public VarType ElemType   { get; }
 
             public ArrayT(VarType elemType, int dimensions) : base($"{elemType._token}[{dimensions}]")
             {
-                ElemType = elemType;
+                ElemType   = elemType;
                 Dimensions = dimensions;
 
                 if (dimensions > 32)
@@ -135,8 +135,8 @@ namespace mini_lang
 
     public class Constant : IEvaluable
     {
-        public string Value { get; }
-        public VarType Type { get; }
+        public string  Value { get; }
+        public VarType Type  { get; }
 
         public Constant(string value, VarType type) => (Value, Type) = (value, type);
         void INode.Accept(INodeVisitor visitor) => visitor.VisitConstant(this);
@@ -144,7 +144,7 @@ namespace mini_lang
 
     public class Identifier : ILValue
     {
-        public string Name { get; }
+        public string  Name { get; }
         public VarType Type { get; }
 
         public Identifier(string name, VarType type) => (Name, Type) = (name, type);
@@ -155,15 +155,15 @@ namespace mini_lang
 
     public class Indexing : ILValue
     {
-        public Identifier Identifier { get; }
-        public List<IEvaluable> Indices { get; }
+        public Identifier       Identifier { get; }
+        public List<IEvaluable> Indices    { get; }
 
         public VarType Type { get; }
 
         public Indexing(Identifier identifier, List<IEvaluable> indices)
         {
             Identifier = identifier;
-            Indices = indices;
+            Indices    = indices;
 
             if (Identifier.Type is VarType.ArrayT arr)
             {
@@ -191,16 +191,16 @@ namespace mini_lang
     {
         public enum OpType
         {
-            [Token("~")] BitwiseNot,
-            [Token("!")] LogicalNot,
-            [Token("-")] IntNegate,
-            [Token("(int)")] Conv2Int,
+            [Token("~")]        BitwiseNot,
+            [Token("!")]        LogicalNot,
+            [Token("-")]        IntNegate,
+            [Token("(int)")]    Conv2Int,
             [Token("(double)")] Conv2Double
         }
 
         public VarType Type { get; }
 
-        public OpType Op { get; }
+        public OpType     Op  { get; }
         public IEvaluable Rhs { get; }
 
         /// <summary>
@@ -210,7 +210,7 @@ namespace mini_lang
         /// <param name="rhs">Operand</param>
         public UnaryOp(OpType op, IEvaluable rhs)
         {
-            Op = op;
+            Op  = op;
             Rhs = rhs;
 
             switch (Op)
@@ -242,7 +242,7 @@ namespace mini_lang
         public UnaryOp(VarType convertTo, IEvaluable rhs)
         {
             Type = convertTo;
-            Rhs = rhs;
+            Rhs  = rhs;
 
             if (convertTo is VarType.IntegerT)
                 Op = OpType.Conv2Int;
@@ -263,8 +263,9 @@ namespace mini_lang
     /// </summary>
     public abstract class BinOp : IEvaluable
     {
-        public VarType Type { get; protected set; }
-        public readonly IEvaluable Lhs, Rhs;
+        public VarType    Type { get; protected set; }
+        public IEvaluable Lhs  { get; }
+        public IEvaluable Rhs  { get; }
 
         protected BinOp(IEvaluable lhs, IEvaluable rhs) => (Lhs, Rhs) = (lhs, rhs);
         protected void InvalidType(string op) => Compiler.Error($"Invalid operand types: {Lhs.Type} {op} {Rhs.Type}");
@@ -283,8 +284,8 @@ namespace mini_lang
             [Token("|")] BitOr,
         }
 
-        public OpType Op { get; }
-        public bool Conversion { get; }
+        public OpType Op         { get; }
+        public bool   Conversion { get; }
 
         public MathOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
         {
@@ -306,7 +307,7 @@ namespace mini_lang
                 else if (lhs.Type != rhs.Type) // Only + - * /
                 {
                     Conversion = true;
-                    Type = VarType.Double;
+                    Type       = VarType.Double;
                 }
                 else
                 {
@@ -324,18 +325,18 @@ namespace mini_lang
         {
             [Token("==")] Eq,
             [Token("!=")] Neq,
-            [Token(">")] Gt,
+            [Token(">")]  Gt,
             [Token(">=")] Gte,
-            [Token("<")] Lt,
+            [Token("<")]  Lt,
             [Token("<=")] Lte,
         }
 
-        public OpType Op { get; }
+        public OpType  Op     { get; }
         public VarType CastTo { get; }
 
         public CompOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
         {
-            Op = op;
+            Op   = op;
             Type = VarType.Bool;
 
             if (op == OpType.Eq || op == OpType.Neq)
@@ -373,7 +374,7 @@ namespace mini_lang
 
         public LogicOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
         {
-            Op = op;
+            Op   = op;
             Type = VarType.Bool;
 
             if (Lhs.Type != VarType.Bool || Rhs.Type != VarType.Bool)
@@ -385,7 +386,7 @@ namespace mini_lang
 
     public class Assignment : IEvaluable
     {
-        public ILValue Lhs { get; }
+        public ILValue    Lhs { get; }
         public IEvaluable Rhs { get; }
 
         public VarType Type => Lhs.Type;
@@ -423,14 +424,14 @@ namespace mini_lang
 
     public class ArrayCreation : INode
     {
-        public Identifier Identifier { get; }
-        public VarType ElemT { get; }
-        public List<IEvaluable> Dims { get; }
+        public Identifier       Identifier { get; }
+        public VarType          ElemT      { get; }
+        public List<IEvaluable> Dims       { get; }
 
         public ArrayCreation(Identifier identifier, List<IEvaluable> dims)
         {
             Identifier = identifier;
-            Dims = dims;
+            Dims       = dims;
 
             if (identifier.Type is VarType.ArrayT arr)
             {
@@ -502,12 +503,12 @@ namespace mini_lang
     public class While : INode
     {
         public IEvaluable Condition { get; }
-        public INode Body { get; }
+        public INode      Body      { get; }
 
         public While(IEvaluable condition, INode body)
         {
             Condition = condition;
-            Body = body;
+            Body      = body;
 
             if (condition.Type != VarType.Bool)
                 Compiler.Error($"While loop condition must evaluate to {VarType.Bool}, not {condition.Type}");
@@ -519,8 +520,8 @@ namespace mini_lang
     public class IfElse : INode
     {
         public IEvaluable Condition { get; }
-        public INode ThenBlock { get; }
-        public INode ElseBlock { get; }
+        public INode      ThenBlock { get; }
+        public INode      ElseBlock { get; }
 
         public IfElse(IEvaluable condition, INode thenBlock, INode elseBlock = null)
         {
@@ -585,11 +586,11 @@ namespace mini_lang
 
     public class CilBuilder : INodeVisitor, ILValueVisitor
     {
-        private readonly StreamWriter _sw;
+        private          int                     _labelNum;
+        private readonly StreamWriter            _sw;
         private readonly Stack<(string, string)> _loopLabels = new Stack<(string, string)>();
 
         // Helper dictionaries
-
         private readonly Dictionary<VarType, string> _longTypes = new Dictionary<VarType, string>
         {
             {VarType.Integer, "int32"},
@@ -604,8 +605,6 @@ namespace mini_lang
             {VarType.Bool, "i1"},
         };
 
-        private int _labelNum;
-
         private string UniqueLabel(string prefix) => $"{prefix}_{_labelNum++}";
 
         public string OutputFile { get; }
@@ -613,7 +612,7 @@ namespace mini_lang
         public CilBuilder(string file)
         {
             OutputFile = file + ".il";
-            _sw = new StreamWriter(OutputFile);
+            _sw        = new StreamWriter(OutputFile);
         }
 
         private void EmitLine(string code) => _sw.WriteLine(code);
@@ -642,7 +641,7 @@ namespace mini_lang
             else
             {
                 var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
-                var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
+                var ints  = string.Join(", ", Enumerable.Repeat("int32", dim));
                 EmitLine(
                     $"call instance void {_longTypes[indexing.Type]}[{zeros}]::Set({ints}, {_longTypes[indexing.Type]})");
             }
@@ -672,7 +671,7 @@ namespace mini_lang
         public void VisitDeclaration(Declaration declaration)
         {
             Identifier ident = declaration.Identifier;
-            VarType t = ident.Type;
+            VarType    t     = ident.Type;
 
             if (t is VarType.ArrayT arr)
             {
@@ -750,9 +749,9 @@ namespace mini_lang
             }
             else
             {
-                string tc = _longTypes[indexing.Type];
-                var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
-                var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
+                string tc    = _longTypes[indexing.Type];
+                var    zeros = string.Join(",", Enumerable.Repeat("0...", dim));
+                var    ints  = string.Join(", ", Enumerable.Repeat("int32", dim));
                 EmitLine($"call instance {tc} {tc}[{zeros}]::Get({ints})");
             }
         }
@@ -775,7 +774,7 @@ namespace mini_lang
             else
             {
                 var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
-                var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
+                var ints  = string.Join(", ", Enumerable.Repeat("int32", dim));
                 EmitLine($"newobj instance void {_longTypes[arrayCreation.ElemT]}[{zeros}]::.ctor({ints})");
             }
 
@@ -993,26 +992,25 @@ namespace mini_lang
     {
         private class Variable
         {
-            internal readonly string Name;
+            internal readonly string  Name;
             internal readonly VarType Type;
-            internal bool Initialized;
-            internal readonly bool CanBeShadowed;
+            internal readonly bool    CanBeShadowed;
+            internal          bool    Initialized;
 
             public Variable(string name, VarType type, bool initialized, bool canBeShadowed)
             {
-                Name = name;
-                Type = type;
-                Initialized = initialized;
+                Name          = name;
+                Type          = type;
+                Initialized   = initialized;
                 CanBeShadowed = canBeShadowed;
             }
         }
 
+        private        int _loopLevel;
         private static int _uniqueId;
-        private int _loopLevel;
-        private readonly Stack<Dictionary<string, Variable>> _scopeStack;
-
-        private Dictionary<string, Variable> CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
         private static string UniqueId(string id) => $"{id}_{_uniqueId++}";
+        private readonly Stack<Dictionary<string, Variable>> _scopeStack;
+        private          Dictionary<string, Variable> CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
 
         public AstBuilder() => _scopeStack = new Stack<Dictionary<string, Variable>>();
 
@@ -1150,7 +1148,7 @@ namespace mini_lang
 
             var builder = new AstBuilder();
             var scanner = new Scanner(source);
-            var parser = new Parser(scanner, builder);
+            var parser  = new Parser(scanner, builder);
 
             var errors = 0;
 
