@@ -23,8 +23,8 @@ namespace mini_lang
     public static class Extensions
     {
         /// <summary>
-        /// Will get the string value for a given enums value, this will
-        /// only work if you assign the StringValue attribute to
+        /// Will get the string value for a given enums value.
+        /// This will only work if you assign the StringValue attribute to
         /// the items in your enum.
         /// </summary>
         public static string GetToken(this Enum value)
@@ -55,56 +55,48 @@ namespace mini_lang
     /// </summary>
     public class VarType
     {
+        public static VarType Integer { get; } = new IntegerT();
+        public static VarType Double { get; } = new DoubleT();
+        public static VarType Bool { get; } = new BoolT();
+        public static VarType String { get; } = new StringT();
+
         private readonly string _token;
+
         private VarType(string token) => _token = token;
-
-        public static VarType Integer => IntegerT.Instance;
-        public static VarType Double = DoubleT.Instance;
-        public static VarType Bool = BoolT.Instance;
-        public static VarType String = StringT.Instance;
-
         public override string ToString() => _token;
 
         public sealed class IntegerT : VarType
         {
-            public static VarType Instance { get; } = new IntegerT();
-
-            private IntegerT() : base("int")
+            internal IntegerT() : base("int")
             {
             }
         }
 
         public sealed class DoubleT : VarType
         {
-            public static VarType Instance { get; } = new DoubleT();
-
-            private DoubleT() : base("double")
+            internal DoubleT() : base("double")
             {
             }
         }
 
         public sealed class BoolT : VarType
         {
-            public static VarType Instance { get; } = new BoolT();
-
-            private BoolT() : base("bool")
+            internal BoolT() : base("bool")
             {
             }
         }
 
         public sealed class StringT : VarType
         {
-            public static VarType Instance { get; } = new StringT();
-
-            private StringT() : base("string")
+            internal StringT() : base("string")
             {
             }
         }
 
         public sealed class ArrayT : VarType
         {
-            public readonly int Dimensions;
-            public readonly VarType ElemType;
+            public int Dimensions { get; }
+            public VarType ElemType { get; }
 
             public ArrayT(VarType elemType, int dimensions) : base($"{elemType._token}[{dimensions}]")
             {
@@ -112,9 +104,7 @@ namespace mini_lang
                 Dimensions = dimensions;
 
                 if (dimensions > 32)
-                {
                     Compiler.Error("Cannot declare array of more than 32 dimensions");
-                }
             }
         }
     }
@@ -150,29 +140,19 @@ namespace mini_lang
 
     public class Identifier : IEvaluable
     {
-        public readonly string Name;
+        public string Name { get; }
         public VarType Type { get; }
 
-        public Identifier(string name, VarType type)
-        {
-            Name = name;
-            Type = type;
-        }
-
+        public Identifier(string name, VarType type) => (Name, Type) = (name, type);
         public void Accept(INodeVisitor visitor) => visitor.VisitIdentifier(this);
     }
 
     public class Constant : IEvaluable
     {
-        public readonly string Value;
+        public string Value { get; }
         public VarType Type { get; }
 
-        public Constant(string value, VarType type)
-        {
-            Value = value;
-            Type = type;
-        }
-
+        public Constant(string value, VarType type) => (Value, Type) = (value, type);
         void INode.Accept(INodeVisitor visitor) => visitor.VisitConstant(this);
     }
 
@@ -180,8 +160,6 @@ namespace mini_lang
 
     public class UnaryOp : IEvaluable
     {
-        public VarType Type { get; }
-
         public enum OpType
         {
             [Token("~")] BitwiseNot,
@@ -191,8 +169,10 @@ namespace mini_lang
             [Token("(double)")] Conv2Double
         }
 
-        public readonly OpType Op;
-        public readonly IEvaluable Rhs;
+        public VarType Type { get; }
+
+        public OpType Op { get; }
+        public IEvaluable Rhs { get; }
 
         /// <summary>
         /// Use this constructor for unary operators other than explicit conversions.
@@ -220,7 +200,7 @@ namespace mini_lang
                     break;
                 case OpType.Conv2Int:
                 case OpType.Conv2Double:
-                    Compiler.Error($"Programmer error: invalid type passed to UnaryOp constructor: {Op}", true);
+                    Compiler.Error($"Invalid type passed to UnaryOp constructor: {Op}", true);
                     break;
             }
         }
@@ -235,18 +215,12 @@ namespace mini_lang
             Type = convertTo;
             Rhs = rhs;
 
-            switch (convertTo)
-            {
-                case VarType.IntegerT _:
-                    Op = OpType.Conv2Int;
-                    break;
-                case VarType.DoubleT _:
-                    Op = OpType.Conv2Double;
-                    break;
-                default:
-                    Compiler.Error($"Explicit conversion to {convertTo} not supported");
-                    break;
-            }
+            if (convertTo is VarType.IntegerT)
+                Op = OpType.Conv2Int;
+            else if (convertTo is VarType.DoubleT)
+                Op = OpType.Conv2Double;
+            else
+                Compiler.Error($"Explicit conversion to {convertTo} not supported");
         }
 
         private void InvalidType() => Compiler.Error($"Invalid operand type: {Op.GetToken()}{Rhs.Type}");
@@ -263,16 +237,9 @@ namespace mini_lang
         public VarType Type { get; protected set; }
         public readonly IEvaluable Lhs, Rhs;
 
-        protected BinOp(IEvaluable lhs, IEvaluable rhs)
-        {
-            Lhs = lhs;
-            Rhs = rhs;
-        }
-
+        protected BinOp(IEvaluable lhs, IEvaluable rhs) => (Lhs, Rhs) = (lhs, rhs);
+        protected void InvalidType(string op) => Compiler.Error($"Invalid operand types: {Lhs.Type} {op} {Rhs.Type}");
         public abstract void Accept(INodeVisitor visitor);
-
-        protected void InvalidType(string op) =>
-            Compiler.Error($"Invalid operand types: {Lhs.Type} {op} {Rhs.Type}");
     }
 
     public class MathOp : BinOp
@@ -287,7 +254,7 @@ namespace mini_lang
             [Token("|")] BitOr,
         }
 
-        public readonly OpType Op;
+        public OpType Op { get; }
         public bool Conversion { get; }
 
         public MathOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
@@ -296,7 +263,7 @@ namespace mini_lang
             if (op == OpType.BitOr || op == OpType.BitAnd) // Bit operators only accept Integers as operands
             {
                 if (lhs.Type != VarType.Integer || rhs.Type != VarType.Integer)
-                    InvalidType();
+                    InvalidType(Op.GetToken());
 
                 Type = VarType.Integer;
             }
@@ -304,7 +271,7 @@ namespace mini_lang
             {
                 if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
                 {
-                    InvalidType();
+                    InvalidType(Op.GetToken());
                     Type = VarType.Bool; // Set something to allow for error recovery
                 }
                 else if (lhs.Type != rhs.Type) // Only + - * /
@@ -319,7 +286,6 @@ namespace mini_lang
             }
         }
 
-        private void InvalidType() => InvalidType(Op.GetToken());
         public override void Accept(INodeVisitor visitor) => visitor.VisitMathOp(this);
     }
 
@@ -335,7 +301,7 @@ namespace mini_lang
             [Token("<=")] Lte,
         }
 
-        public readonly OpType Op;
+        public OpType Op { get; }
         public VarType CastTo { get; }
 
         public CompOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
@@ -374,7 +340,7 @@ namespace mini_lang
             [Token("||")] Or
         }
 
-        public readonly OpType Op;
+        public OpType Op { get; }
 
         public LogicOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
         {
@@ -382,10 +348,9 @@ namespace mini_lang
             Type = VarType.Bool;
 
             if (Lhs.Type != VarType.Bool || Rhs.Type != VarType.Bool)
-                InvalidType();
+                InvalidType(Op.GetToken());
         }
 
-        private void InvalidType() => InvalidType(Op.GetToken());
         public override void Accept(INodeVisitor visitor) => visitor.VisitLogicOp(this);
     }
 
@@ -405,8 +370,7 @@ namespace mini_lang
             if (Type == VarType.Double && Rhs.Type == VarType.Integer)
                 Conversion = true;
             else if (Type != Rhs.Type)
-                Compiler.Error(
-                    $"Cannot assign value of type {Rhs.Type} to a variable of type {Type}");
+                Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {Type}");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitAssignment(this);
@@ -414,12 +378,11 @@ namespace mini_lang
 
     public class ArrayAssignment : IEvaluable
     {
-        public Identifier Lhs { get; }
-        public List<IEvaluable> Indices { get; }
-        public IEvaluable Rhs { get; }
-        public bool Conversion { get; }
-
         public VarType Type { get; }
+        public Identifier Lhs { get; }
+        public IEvaluable Rhs { get; }
+        public List<IEvaluable> Indices { get; }
+        public bool Conversion { get; }
 
         public ArrayAssignment(Identifier identifier, List<IEvaluable> indices, IEvaluable rhs)
         {
@@ -441,7 +404,7 @@ namespace mini_lang
 
                 Indices.ForEach(size =>
                 {
-                    if (size.Type != VarType.Integer) // TODO: allow implicit conversions?
+                    if (size.Type != VarType.Integer)
                         Compiler.Error($"{size.Type} invalid as an array index – expected {VarType.Integer}");
                 });
             }
@@ -465,42 +428,36 @@ namespace mini_lang
 
     public class Declaration : INode
     {
-        public readonly Identifier Identifier;
-        public readonly VarType Type;
+        public Identifier Identifier { get; }
 
-        public Declaration(VarType vType, Identifier identifier)
-        {
-            Type = vType;
-            Identifier = identifier;
-        }
-
+        public Declaration(Identifier identifier) => Identifier = identifier;
         void INode.Accept(INodeVisitor visitor) => visitor.VisitDeclaration(this);
     }
 
     public class ArrayCreation : INode
     {
-        public Identifier Identifier;
+        public Identifier Identifier { get; }
         public VarType ElemT { get; }
-        public readonly List<IEvaluable> Sizes;
+        public List<IEvaluable> Dims { get; }
 
-        public ArrayCreation(Identifier identifier, List<IEvaluable> sizes)
+        public ArrayCreation(Identifier identifier, List<IEvaluable> dims)
         {
             Identifier = identifier;
-            Sizes = sizes;
+            Dims = dims;
 
             if (identifier.Type is VarType.ArrayT arr)
             {
                 ElemT = arr.ElemType;
-                if (arr.Dimensions != Sizes.Count)
-                    Compiler.Error($"Invalid array creation: {Sizes.Count} sizes provided, {arr.Dimensions} expected");
+                if (arr.Dimensions != Dims.Count)
+                    Compiler.Error($"Invalid array creation: {Dims.Count} sizes provided, {arr.Dimensions} expected");
             }
             else
                 Compiler.Error($"{identifier.Name} is not of array type");
 
-            Sizes.ForEach(size =>
+            Dims.ForEach(size =>
             {
-                if (size.Type != VarType.Integer) // TODO: allow implicit conversions?
-                    Compiler.Error($"{size.Type} invalid as an array size – expected {VarType.Integer}");
+                if (size.Type != VarType.Integer)
+                    Compiler.Error($"{size.Type} invalid as an array dimension – expected {VarType.Integer}");
             });
         }
 
@@ -509,9 +466,8 @@ namespace mini_lang
 
     public class Indexing : IEvaluable
     {
-        public Identifier Identifier;
-        public readonly List<IEvaluable> Indices;
-
+        public Identifier Identifier { get; }
+        public List<IEvaluable> Indices { get; }
         public VarType Type { get; }
 
         public Indexing(Identifier identifier, List<IEvaluable> indices)
@@ -527,7 +483,7 @@ namespace mini_lang
 
                 Indices.ForEach(size =>
                 {
-                    if (size.Type != VarType.Integer) // TODO: allow implicit conversions?
+                    if (size.Type != VarType.Integer)
                         Compiler.Error($"{size.Type} invalid as an array index – expected {VarType.Integer}");
                 });
             }
@@ -540,19 +496,17 @@ namespace mini_lang
 
     public class Write : INode
     {
-        public readonly IEvaluable Rhs;
+        public IEvaluable Rhs { get; }
 
         public Write(IEvaluable rhs) => Rhs = rhs;
-
         void INode.Accept(INodeVisitor visitor) => visitor.VisitWrite(this);
     }
 
     public class Read : INode
     {
-        public readonly Identifier Target;
+        public Identifier Target { get; } // TODO: Arrays as well
 
         public Read(Identifier target) => Target = target;
-
         void INode.Accept(INodeVisitor visitor) => visitor.VisitRead(this);
     }
 
@@ -563,14 +517,13 @@ namespace mini_lang
 
     public class Break : INode
     {
-        public readonly int Levels;
+        public int Levels { get; }
 
         public Break(int levels)
         {
-            if (levels <= 0)
-                Compiler.Error("Break level not positive");
-
             Levels = levels;
+            if (Levels < 1)
+                Compiler.Error("Break level not positive");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitBreak(this);
@@ -583,8 +536,8 @@ namespace mini_lang
 
     public class While : INode
     {
-        public readonly IEvaluable Condition;
-        public readonly INode Body;
+        public IEvaluable Condition { get; }
+        public INode Body { get; }
 
         public While(IEvaluable condition, INode body)
         {
@@ -592,8 +545,7 @@ namespace mini_lang
             Body = body;
 
             if (condition.Type != VarType.Bool)
-                Compiler.Error(
-                    $"While loop condition must evaluate to {VarType.Bool}, not {condition.Type}");
+                Compiler.Error($"While loop condition must evaluate to {VarType.Bool}, not {condition.Type}");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitWhile(this);
@@ -601,9 +553,9 @@ namespace mini_lang
 
     public class IfElse : INode
     {
-        public readonly IEvaluable Condition;
-        public readonly INode ThenBlock;
-        public readonly INode ElseBlock;
+        public IEvaluable Condition { get; }
+        public INode ThenBlock { get; }
+        public INode ElseBlock { get; }
 
         public IfElse(IEvaluable condition, INode thenBlock, INode elseBlock = null)
         {
@@ -631,9 +583,10 @@ namespace mini_lang
     public interface INodeVisitor
     {
         // Primitives
-        void VisitIdentifier(Identifier identifier);
-        void VisitConstant(Constant constant);
         void VisitProgram(Program program);
+        void VisitConstant(Constant constant);
+        void VisitIdentifier(Identifier identifier);
+        void VisitIndexing(Indexing indexing);
 
         // Statements
         void VisitBlock(Block block);
@@ -641,7 +594,6 @@ namespace mini_lang
         void VisitDeclaration(Declaration declaration);
         void VisitAssignment(Assignment assignment);
         void VisitArrayAssignment(ArrayAssignment arrayAssignment);
-        void VisitIndexing(Indexing indexing);
         void VisitArrayCreation(ArrayCreation arrayCreation);
         void VisitWrite(Write write);
         void VisitRead(Read read);
@@ -661,21 +613,32 @@ namespace mini_lang
     public class CilBuilder : INodeVisitor
     {
         private readonly StreamWriter _sw;
-        private Stack<(string, string)> _loopLabels = new Stack<(string, string)>();
-        private int _labelNum;
+        private readonly Stack<(string, string)> _loopLabels = new Stack<(string, string)>();
 
-        private Dictionary<VarType, string> _valueTypes = new Dictionary<VarType, string>
+        // Helper dictionaries
+
+        private readonly Dictionary<VarType, string> _valueTypes = new Dictionary<VarType, string>
         {
             {VarType.Integer, "int32"},
             {VarType.Double, "float64"},
-            {VarType.Bool, "bool"}
+            {VarType.Bool, "bool"},
+            {VarType.String, "string"}
         };
+
+        private readonly Dictionary<VarType, string> _shorts = new Dictionary<VarType, string>
+        {
+            {VarType.Integer, "i4"},
+            {VarType.Double, "r8"},
+            {VarType.Bool, "i1"},
+        };
+
+        private int _labelNum;
 
         /// <summary>
         /// A computed property used for generating unique labels.
         /// </summary>
         /// <value>A unique label</value>
-        private string Label => $"LABEL_{_labelNum++}";
+        private string UniqueLabel(string helper) => $"LABEL_{helper}_{_labelNum++}";
 
         /// <summary>
         /// Path to the generated CIL file.
@@ -711,28 +674,24 @@ namespace mini_lang
 
         public void VisitDeclaration(Declaration declaration)
         {
-            switch (declaration.Type)
-            {
-                case VarType.BoolT _:
-                case VarType.IntegerT _:
-                case VarType.DoubleT _:
-                    EmitLine($".locals init ( {_valueTypes[declaration.Type]} {declaration.Identifier.Name} )");
-                    break;
-                case VarType.ArrayT arr:
-                {
-                    if (arr.Dimensions == 1)
-                    {
-                        EmitLine($".locals init ( {_valueTypes[arr.ElemType]}[] {declaration.Identifier.Name} )");
-                    }
-                    else
-                    {
-                        string zeros = string.Join(",", Enumerable.Repeat("0...", arr.Dimensions));
-                        EmitLine(
-                            $".locals init ( {_valueTypes[arr.ElemType]}[{zeros}] {declaration.Identifier.Name} )");
-                    }
+            Identifier ident = declaration.Identifier;
+            VarType t = ident.Type;
 
-                    break;
+            if (t is VarType.ArrayT arr)
+            {
+                if (arr.Dimensions == 1)
+                {
+                    EmitLine($".locals init ( {_valueTypes[arr.ElemType]}[] {ident.Name} )");
                 }
+                else
+                {
+                    var zeros = string.Join(",", Enumerable.Repeat("0...", arr.Dimensions));
+                    EmitLine($".locals init ( {_valueTypes[arr.ElemType]}[{zeros}] {ident.Name} )");
+                }
+            }
+            else if (!(t is VarType.StringT))
+            {
+                EmitLine($".locals init ( {_valueTypes[t]} {ident.Name} )");
             }
         }
 
@@ -762,7 +721,7 @@ namespace mini_lang
                 case VarType.DoubleT _:
                     EmitLine("conv.r8");
                     break;
-                case VarType.BoolT _: // TODO: Most likely unused
+                case VarType.BoolT _: // TODO: Unit test
                 case VarType.IntegerT _:
                     EmitLine("conv.i4");
                     break;
@@ -782,7 +741,7 @@ namespace mini_lang
 
         public void VisitArrayAssignment(ArrayAssignment ars)
         {
-            // TODO: dup?
+            // Instead of "dup"
             ars.Rhs.Accept(this);
             if (ars.Conversion)
                 EmitConversion(ars.Type);
@@ -795,15 +754,10 @@ namespace mini_lang
                 EmitConversion(ars.Type);
 
             int dim = ars.Indices.Count;
+
             if (dim == 1)
             {
-                var shorts = new Dictionary<VarType, string>
-                {
-                    {VarType.Integer, "i4"},
-                    {VarType.Double, "r8"},
-                    {VarType.Bool, "i1"},
-                };
-                EmitLine($"stelem.{shorts[ars.Type]}");
+                EmitLine($"stelem.{_shorts[ars.Type]}");
             }
             else
             {
@@ -822,13 +776,7 @@ namespace mini_lang
 
             if (dim == 1)
             {
-                var shorts = new Dictionary<VarType, string>
-                {
-                    {VarType.Integer, "i4"},
-                    {VarType.Double, "r8"},
-                    {VarType.Bool, "i1"},
-                };
-                EmitLine($"ldelem.{shorts[indexing.Type]}");
+                EmitLine($"ldelem.{_shorts[indexing.Type]}");
             }
             else
             {
@@ -841,8 +789,8 @@ namespace mini_lang
 
         public void VisitArrayCreation(ArrayCreation arrayCreation)
         {
-            int dim = arrayCreation.Sizes.Count;
-            arrayCreation.Sizes.ForEach(node => node.Accept(this));
+            int dim = arrayCreation.Dims.Count;
+            arrayCreation.Dims.ForEach(node => node.Accept(this));
 
             if (dim == 1)
             {
@@ -868,14 +816,10 @@ namespace mini_lang
         {
             switch (write.Rhs.Type)
             {
-                case VarType.IntegerT _:
-                    write.Rhs.Accept(this);
-                    EmitLine("call void [mscorlib]System.Console::Write(int32)");
-                    break;
                 case VarType.DoubleT _:
-                    EmitLine(
-                        "call class [mscorlib]System.Globalization.CultureInfo class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
-                    EmitLine("ldstr \"{0:0.000000}\"");
+                    EmitLine(@"call class [mscorlib]System.Globalization.CultureInfo 
+                               class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
+                    EmitLine(@"ldstr ""{0:0.000000}""");
 
                     write.Rhs.Accept(this);
 
@@ -883,13 +827,11 @@ namespace mini_lang
                     EmitLine("call string string::Format(class [mscorlib]System.IFormatProvider, string, object)");
                     EmitLine("call void [mscorlib]System.Console::Write(string)");
                     break;
-                case VarType.BoolT _:
+                case VarType.ArrayT _:
+                    throw new NotImplementedException();
+                default:
                     write.Rhs.Accept(this);
-                    EmitLine("call void [mscorlib]System.Console::Write(bool)");
-                    break;
-                case VarType.StringT _:
-                    write.Rhs.Accept(this);
-                    EmitLine("call void [mscorlib]System.Console::Write(string)");
+                    EmitLine($"call void [mscorlib]System.Console::Write({_valueTypes[write.Rhs.Type]})");
                     break;
             }
         }
@@ -909,6 +851,8 @@ namespace mini_lang
                 case VarType.BoolT _:
                     EmitLine("call bool bool::TryParse(string, [out] bool&)");
                     break;
+                case VarType.ArrayT arr:
+                    throw new NotImplementedException();
             }
 
             EmitLine("pop");
@@ -920,7 +864,7 @@ namespace mini_lang
 
         public void VisitWhile(While @while)
         {
-            string startWhile = Label, endWhile = Label;
+            string startWhile = UniqueLabel("WHILE_START"), endWhile = UniqueLabel("WHILE_END");
             EmitLine($"{startWhile}:");
             @while.Condition.Accept(this);
             EmitLine($"brfalse {endWhile}");
@@ -933,19 +877,19 @@ namespace mini_lang
 
         public void VisitIfElse(IfElse ifElse)
         {
-            string elseLabel = Label;
+            string elseLabel = UniqueLabel("ELSE");
             ifElse.Condition.Accept(this);
             EmitLine($"brfalse {elseLabel}");
             ifElse.ThenBlock.Accept(this);
+
             if (ifElse.ElseBlock != null)
             {
-                string endLabel = Label;
+                string endLabel = UniqueLabel("ENDIF");
                 EmitLine($"br {endLabel}");
                 EmitLine($"{elseLabel}:");
                 ifElse.ElseBlock.Accept(this);
                 EmitLine($"{endLabel}:");
             }
-
             else
             {
                 EmitLine($"{elseLabel}:");
@@ -957,10 +901,11 @@ namespace mini_lang
             mathOp.Lhs.Accept(this);
             if (mathOp.Conversion && mathOp.Lhs.Type != mathOp.Type)
                 EmitConversion(mathOp.Type);
+
             mathOp.Rhs.Accept(this);
             if (mathOp.Conversion && mathOp.Rhs.Type != mathOp.Type)
-
                 EmitConversion(mathOp.Type);
+
             switch (mathOp.Op)
             {
                 case MathOp.OpType.Add:
@@ -989,10 +934,11 @@ namespace mini_lang
             compOp.Lhs.Accept(this);
             if (compOp.CastTo is VarType type && compOp.Lhs.Type != type)
                 EmitConversion(type);
+
             compOp.Rhs.Accept(this);
             if (compOp.CastTo is VarType type2 && compOp.Rhs.Type != type2)
-
                 EmitConversion(type2);
+
             switch (compOp.Op)
             {
                 case CompOp.OpType.Eq:
@@ -1018,7 +964,7 @@ namespace mini_lang
 
         public void VisitLogicOp(LogicOp logicOp)
         {
-            string label = Label;
+            string label = UniqueLabel("LOGIC");
             logicOp.Lhs.Accept(this);
             EmitLine("dup");
             EmitLine(logicOp.Op == LogicOp.OpType.And ? $"brfalse {label}" : $"brtrue {label}");
@@ -1082,10 +1028,10 @@ namespace mini_lang
     {
         private class Variable
         {
-            public readonly string Name;
-            public readonly VarType Type;
-            public bool Initialized;
-            public readonly bool CanBeShadowed;
+            internal readonly string Name;
+            internal readonly VarType Type;
+            internal bool Initialized;
+            internal readonly bool CanBeShadowed;
 
             public Variable(string name, VarType type, bool initialized, bool canBeShadowed)
             {
@@ -1097,37 +1043,33 @@ namespace mini_lang
         }
 
         private static int _uniqueId;
-
-        // TODO: assumes '_' will never be allowed in identifiers
-        private static string UniqueId(string id) => $"{id}_{_uniqueId++}";
-
+        private int _loopLevel;
         private readonly Stack<Dictionary<string, Variable>> _scopeStack;
 
         private Dictionary<string, Variable> CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
+        private static string UniqueId(string id) => $"{id}_{_uniqueId++}";
 
         public AstBuilder() => _scopeStack = new Stack<Dictionary<string, Variable>>();
 
-        private int _loopLevel;
-
         public Identifier CreateIdentifier(string name)
         {
-            if (CurrentScope.ContainsKey(name))
+            if (CurrentScope.TryGetValue(name, out Variable variable))
             {
-                if (!CurrentScope[name].Initialized)
+                if (!variable.Initialized)
                     Compiler.Error($"Attempting to access uninitialized variable {name}");
 
-                return new Identifier(CurrentScope[name].Name, CurrentScope[name].Type);
+                return new Identifier(variable.Name, variable.Type);
             }
 
-            Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer}");
+            Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer} for further analysis");
             return new Identifier(name, VarType.Integer);
         }
 
         public Declaration CreateDeclaration(string name, VarType type)
         {
-            if (CurrentScope.ContainsKey(name))
+            if (CurrentScope.TryGetValue(name, out Variable variable))
             {
-                if (CurrentScope[name].CanBeShadowed)
+                if (variable.CanBeShadowed)
                 {
                     // Shadow an existing variable
                     // Actually declares another one
@@ -1137,7 +1079,7 @@ namespace mini_lang
 
                     // Skips the initialization check
                     // TODO: do not initialize the value (skip "init" in codegen)
-                    return new Declaration(type, new Identifier(trueName, type));
+                    return new Declaration(new Identifier(trueName, type));
                 }
 
                 Compiler.Error($"Redeclaration of variable {name}");
@@ -1146,21 +1088,21 @@ namespace mini_lang
 
             // Declare a new variable
             CurrentScope[name] = new Variable(name, type, _scopeStack.Count == 1 && !(type is VarType.ArrayT), false);
-            return new Declaration(type, new Identifier(name, type));
+            return new Declaration(new Identifier(name, type));
         }
 
         public Assignment CreateAssignment(string name, IEvaluable rhs)
         {
-            if (CurrentScope.ContainsKey(name))
-                CurrentScope[name].Initialized = true;
+            if (CurrentScope.TryGetValue(name, out Variable variable))
+                variable.Initialized = true;
 
             return new Assignment(CreateIdentifier(name), rhs);
         }
 
         public ArrayCreation CreateArrayCreation(string name, List<IEvaluable> sizes)
         {
-            if (CurrentScope.ContainsKey(name))
-                CurrentScope[name].Initialized = true;
+            if (CurrentScope.TryGetValue(name, out Variable variable))
+                variable.Initialized = true;
 
             return new ArrayCreation(CreateIdentifier(name), sizes);
         }
@@ -1172,7 +1114,7 @@ namespace mini_lang
                 int.TryParse(c.Value, out int levels);
 
                 if (levels > _loopLevel)
-                    Compiler.Error($"Trying to break out of {levels} loops in {_scopeStack.Count - 1} nested loops");
+                    Compiler.Error($"Trying to break out of {levels} loops in {_loopLevel} nested loops");
 
                 return new Break(levels);
             }
@@ -1184,23 +1126,16 @@ namespace mini_lang
         public Continue CreateContinue()
         {
             if (_loopLevel < 1)
-                Compiler.Error($"Continue statement outside of a loop");
+                Compiler.Error("Continue statement outside of a loop");
 
             return new Continue();
         }
 
         public void PushScope()
         {
-            if (CurrentScope != null)
-            {
-                var newScope = CurrentScope.ToDictionary(e => e.Key,
-                    e => new Variable(e.Value.Name, e.Value.Type, true, true));
-                _scopeStack.Push(newScope);
-            }
-            else
-            {
-                _scopeStack.Push(new Dictionary<string, Variable>());
-            }
+            _scopeStack.Push(CurrentScope == null
+                ? new Dictionary<string, Variable>()
+                : CurrentScope.ToDictionary(e => e.Key, e => new Variable(e.Value.Name, e.Value.Type, true, true)));
         }
 
         public void PopScope() => _scopeStack.Pop();

@@ -132,8 +132,8 @@ value_0: Ident                  { $$ = builder.CreateIdentifier($1); }
 op_1: Minus op_1                { $$ = new UnaryOp(UnaryOp.OpType.IntNegate, $2); }
     | BitNot op_1               { $$ = new UnaryOp(UnaryOp.OpType.BitwiseNot, $2); }
     | Not op_1                  { $$ = new UnaryOp(UnaryOp.OpType.LogicalNot, $2); }
-    | LParen Type RParen op_1   { $$ = new UnaryOp($2, $4); } // explicit conversion
-    | LParen op_6 RParen        { $$ = $2; } // parentheses
+    | LParen Type RParen op_1   { $$ = new UnaryOp($2, $4); }
+    | LParen op_6 RParen        { $$ = $2; }
     | value_0 ;
 
 op_2: op_2 BitAnd op_1  { $$ = new MathOp(MathOp.OpType.BitAnd, $1, $3); }
