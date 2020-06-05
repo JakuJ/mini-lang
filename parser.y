@@ -39,7 +39,7 @@
 %type <node>    block statement if while oneliner write read break create
 %type <nodes>   declaration declarations statements
 %type <lval>    lvalue
-%type <eval>    value_0 writable op_1 op_2 op_3 op_4 op_5 op_6 evaluable
+%type <eval>    value_0 op_1 op_2 op_3 op_4 op_5 op_6 evaluable
 %type <evals>   sizes indexing
 %type <type>    type
 %type <strings> idents
@@ -105,7 +105,9 @@ oneliner: evaluable     { $$ = new ExprStatement($1); } // discard created value
 
 read: Read lvalue               { $$ = new Read($2); } ;
 
-write: Write writable           { $$ = new Write($2); } ;
+write: Write evaluable          { $$ = new Write($2); }
+     | Write String             { $$ = new WriteString($2); }
+     ;
 
 break: Break            { $$ = builder.CreateBreak(new Constant("1", VarType.Integer)); }
      | Break LitInt     { $$ = builder.CreateBreak($2); }
@@ -118,10 +120,6 @@ indexing: LBracket sizes evaluable RBracket { $2.Add($3); $$ = $2; } ;
 sizes: sizes evaluable Comma    { $1.Add($2); $$ = $1; }
      |                          { $$ = new List<IEvaluable>(); }
      ;
-
-writable: evaluable
-        | String                { $$ = new Constant($1, VarType.String); }
-        ;
 
 // Operators
 

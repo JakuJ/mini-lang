@@ -58,7 +58,6 @@ namespace mini_lang
         public static VarType Integer { get; } = new IntegerT();
         public static VarType Double { get; } = new DoubleT();
         public static VarType Bool { get; } = new BoolT();
-        public static VarType String { get; } = new StringT();
 
         private readonly string _token;
 
@@ -67,30 +66,17 @@ namespace mini_lang
 
         public sealed class IntegerT : VarType
         {
-            internal IntegerT() : base("int")
-            {
-            }
+            internal IntegerT() : base("int") { }
         }
 
         public sealed class DoubleT : VarType
         {
-            internal DoubleT() : base("double")
-            {
-            }
+            internal DoubleT() : base("double") { }
         }
 
         public sealed class BoolT : VarType
         {
-            internal BoolT() : base("bool")
-            {
-            }
-        }
-
-        public sealed class StringT : VarType
-        {
-            internal StringT() : base("string")
-            {
-            }
+            internal BoolT() : base("bool") { }
         }
 
         public sealed class ArrayT : VarType
@@ -172,7 +158,6 @@ namespace mini_lang
         public Identifier Identifier { get; }
         public List<IEvaluable> Indices { get; }
 
-        public string Name => Identifier.Name;
         public VarType Type { get; }
 
         public Indexing(Identifier identifier, List<IEvaluable> indices)
@@ -474,6 +459,14 @@ namespace mini_lang
         void INode.Accept(INodeVisitor visitor) => visitor.VisitWrite(this);
     }
 
+    public class WriteString : INode
+    {
+        public string String { get; }
+
+        public WriteString(string s) => String = s;
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitWriteString(this);
+    }
+
     public class Read : INode
     {
         public ILValue Target { get; }
@@ -567,6 +560,7 @@ namespace mini_lang
         void VisitAssignment(Assignment assignment);
         void VisitArrayCreation(ArrayCreation arrayCreation);
         void VisitWrite(Write write);
+        void VisitWriteString(WriteString writeString);
         void VisitRead(Read read);
         void VisitWhile(While @while);
         void VisitIfElse(IfElse ifElse);
@@ -596,15 +590,14 @@ namespace mini_lang
 
         // Helper dictionaries
 
-        private readonly Dictionary<VarType, string> _valueTypes = new Dictionary<VarType, string>
+        private readonly Dictionary<VarType, string> _longTypes = new Dictionary<VarType, string>
         {
             {VarType.Integer, "int32"},
             {VarType.Double, "float64"},
             {VarType.Bool, "bool"},
-            {VarType.String, "string"}
         };
 
-        private readonly Dictionary<VarType, string> _shorts = new Dictionary<VarType, string>
+        private readonly Dictionary<VarType, string> _shortTypes = new Dictionary<VarType, string>
         {
             {VarType.Integer, "i4"},
             {VarType.Double, "r8"},
@@ -613,7 +606,7 @@ namespace mini_lang
 
         private int _labelNum;
 
-        private string UniqueLabel(string helper) => $"LABEL_{helper}_{_labelNum++}";
+        private string UniqueLabel(string prefix) => $"{prefix}_{_labelNum++}";
 
         public string OutputFile { get; }
 
@@ -644,14 +637,14 @@ namespace mini_lang
 
             if (dim == 1)
             {
-                EmitLine($"stelem.{_shorts[indexing.Type]}");
+                EmitLine($"stelem.{_shortTypes[indexing.Type]}");
             }
             else
             {
                 var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
                 var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
                 EmitLine(
-                    $"call instance void {_valueTypes[indexing.Type]}[{zeros}]::Set({ints}, {_valueTypes[indexing.Type]})");
+                    $"call instance void {_longTypes[indexing.Type]}[{zeros}]::Set({ints}, {_longTypes[indexing.Type]})");
             }
         }
 
@@ -685,17 +678,17 @@ namespace mini_lang
             {
                 if (arr.Dimensions == 1)
                 {
-                    EmitLine($".locals init ( {_valueTypes[arr.ElemType]}[] {ident.Name} )");
+                    EmitLine($".locals init ( {_longTypes[arr.ElemType]}[] {ident.Name} )");
                 }
                 else
                 {
                     var zeros = string.Join(",", Enumerable.Repeat("0...", arr.Dimensions));
-                    EmitLine($".locals init ( {_valueTypes[arr.ElemType]}[{zeros}] {ident.Name} )");
+                    EmitLine($".locals init ( {_longTypes[arr.ElemType]}[{zeros}] {ident.Name} )");
                 }
             }
-            else if (!(t is VarType.StringT))
+            else
             {
-                EmitLine($".locals init ( {_valueTypes[t]} {ident.Name} )");
+                EmitLine($".locals init ( {_longTypes[t]} {ident.Name} )");
             }
         }
 
@@ -712,9 +705,8 @@ namespace mini_lang
                 case VarType.BoolT _:
                     EmitLine(constant.Value == "true" ? "ldc.i4.1" : "ldc.i4.0");
                     break;
-                case VarType.StringT _:
-                    EmitLine($"ldstr {constant.Value}");
-                    break;
+                case VarType.ArrayT arrayT:
+                    throw new NotImplementedException();
             }
         }
 
@@ -754,11 +746,11 @@ namespace mini_lang
 
             if (dim == 1)
             {
-                EmitLine($"ldelem.{_shorts[indexing.Type]}");
+                EmitLine($"ldelem.{_shortTypes[indexing.Type]}");
             }
             else
             {
-                string tc = _valueTypes[indexing.Type];
+                string tc = _longTypes[indexing.Type];
                 var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
                 var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
                 EmitLine($"call instance {tc} {tc}[{zeros}]::Get({ints})");
@@ -784,7 +776,7 @@ namespace mini_lang
             {
                 var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
                 var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
-                EmitLine($"newobj instance void {_valueTypes[arrayCreation.ElemT]}[{zeros}]::.ctor({ints})");
+                EmitLine($"newobj instance void {_longTypes[arrayCreation.ElemT]}[{zeros}]::.ctor({ints})");
             }
 
             EmitLine($"stloc {arrayCreation.Identifier.Name}");
@@ -805,13 +797,19 @@ namespace mini_lang
                     EmitLine("call string string::Format(class [mscorlib]System.IFormatProvider, string, object)");
                     EmitLine("call void [mscorlib]System.Console::Write(string)");
                     break;
-                case VarType.ArrayT _:
+                case VarType.ArrayT _: // TODO: printing whole arrays?
                     throw new NotImplementedException();
                 default:
                     write.Rhs.Accept(this);
-                    EmitLine($"call void [mscorlib]System.Console::Write({_valueTypes[write.Rhs.Type]})");
+                    EmitLine($"call void [mscorlib]System.Console::Write({_longTypes[write.Rhs.Type]})");
                     break;
             }
+        }
+
+        public void VisitWriteString(WriteString writeString)
+        {
+            EmitLine($"ldstr {writeString.String}");
+            EmitLine($"call void [mscorlib]System.Console::Write(string)");
         }
 
         public void VisitRead(Read read)
@@ -819,7 +817,7 @@ namespace mini_lang
             void Action()
             {
                 EmitLine("call string class [mscorlib]System.Console::ReadLine()");
-                EmitLine($"call {_valueTypes[read.Target.Type]} {_valueTypes[read.Target.Type]}::Parse(string)");
+                EmitLine($"call {_longTypes[read.Target.Type]} {_longTypes[read.Target.Type]}::Parse(string)");
             }
 
             read.Target.Store(this, Action);
@@ -1101,8 +1099,9 @@ namespace mini_lang
         public void PushScope()
         {
             _scopeStack.Push(CurrentScope == null
-                ? new Dictionary<string, Variable>()
-                : CurrentScope.ToDictionary(e => e.Key, e => new Variable(e.Value.Name, e.Value.Type, true, true)));
+                                 ? new Dictionary<string, Variable>()
+                                 : CurrentScope.ToDictionary(
+                                     e => e.Key, e => new Variable(e.Value.Name, e.Value.Type, true, true)));
         }
 
         public void PopScope() => _scopeStack.Pop();
@@ -1119,9 +1118,7 @@ namespace mini_lang
     public class AstException : Exception // TODO: maybe unused
     {
         /// <inheritdoc cref="AstException"/>
-        public AstException(string message) : base(message)
-        {
-        }
+        public AstException(string message) : base(message) { }
     }
 
     /// <summary>
