@@ -1,0 +1,8 @@
+program {
+    int [,] matrix;
+    
+    create matrix [3, 3];
+    
+    read matrix[1, 2];
+    write matrix[1, 2];   
+}

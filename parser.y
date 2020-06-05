@@ -24,6 +24,7 @@
     public INode node;
     public List<INode> nodes;
     public IEvaluable eval;
+    public ILValue lval;
     public List<IEvaluable> evals;
 }
 
@@ -37,6 +38,7 @@
 
 %type <node>    block statement if while oneliner write read break create
 %type <nodes>   declaration declarations statements
+%type <lval>    lvalue
 %type <eval>    value_0 writable op_1 op_2 op_3 op_4 op_5 op_6 evaluable
 %type <evals>   sizes indexing
 %type <type>    type
@@ -101,7 +103,7 @@ oneliner: evaluable     { $$ = new ExprStatement($1); } // discard created value
         | Return        { $$ = new Return(); }
         ;
 
-read: Read Ident                { $$ = new Read(builder.CreateIdentifier($2)); } ;
+read: Read lvalue               { $$ = new Read($2); } ;
 
 write: Write writable           { $$ = new Write($2); } ;
 
@@ -123,8 +125,11 @@ writable: evaluable
 
 // Operators
 
-value_0: Ident                  { $$ = builder.CreateIdentifier($1); }
-       | Ident indexing         { $$ = new Indexing(builder.CreateIdentifier($1), $2); }
+lvalue: Ident                  { $$ = builder.CreateIdentifier($1); }
+      | Ident indexing         { $$ = new Indexing(builder.CreateIdentifier($1), $2); }
+      ;
+
+value_0: lvalue                 { $$ = $1 as IEvaluable; }
        | LitInt
        | LitDouble
        | LitBool ;
@@ -161,7 +166,7 @@ op_6: op_6 And op_5     { $$ = new LogicOp(LogicOp.OpType.And, $1, $3); }
     | op_5 ;
     
 evaluable: Ident Assign evaluable               { $$ = builder.CreateAssignment($1, $3); }
-         | Ident indexing Assign evaluable      { $$ = new ArrayAssignment(builder.CreateIdentifier($1), $2, $4); }
+         | Ident indexing Assign evaluable      { $$ = new Assignment(new Indexing(builder.CreateIdentifier($1), $2), $4); }
          | op_6 ;
 
 %%

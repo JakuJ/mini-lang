@@ -22,17 +22,18 @@ namespace UnitTests
             Program program = null;
 
             Assert.DoesNotThrow(() =>
-            {
-                (Program p, int errors) = RunCompiler(filename);
-                errs = errors;
-                program = p;
-            });
+                {
+                    (Program p, int errors) = RunCompiler(filename);
+                    errs = errors;
+                    program = p;
+                },
+                "AST construction should not throw");
 
-            Assert.Zero(errs);
+            Assert.Zero(errs, "Expected there to be no errors found in source code");
 
             var codeGen = new CilBuilder(Path.Combine(TestContext.CurrentContext.WorkDirectory, filename));
 
-            Assert.DoesNotThrow(() => { program.Accept(codeGen); });
+            Assert.DoesNotThrow(() => { program.Accept(codeGen); }, "Code generation should not throw");
 
             string ilPath = codeGen.OutputFile;
             string exePath = Path.ChangeExtension(ilPath, "exe");

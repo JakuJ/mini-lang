@@ -127,6 +127,15 @@ namespace mini_lang
         VarType Type { get; }
     }
 
+    /// <inheritdoc />
+    /// <summary>
+    /// An interface for expressions that can be assigned to.
+    /// </summary>
+    public interface ILValue : IEvaluable
+    {
+        void Store(ILValueVisitor visitor, CodeGenerator value);
+    }
+
     #endregion
 
     #region AST
@@ -138,15 +147,6 @@ namespace mini_lang
         public void Accept(INodeVisitor visitor) => visitor.VisitBlock(this);
     }
 
-    public class Identifier : IEvaluable
-    {
-        public string Name { get; }
-        public VarType Type { get; }
-
-        public Identifier(string name, VarType type) => (Name, Type) = (name, type);
-        public void Accept(INodeVisitor visitor) => visitor.VisitIdentifier(this);
-    }
-
     public class Constant : IEvaluable
     {
         public string Value { get; }
@@ -154,6 +154,50 @@ namespace mini_lang
 
         public Constant(string value, VarType type) => (Value, Type) = (value, type);
         void INode.Accept(INodeVisitor visitor) => visitor.VisitConstant(this);
+    }
+
+    public class Identifier : ILValue
+    {
+        public string Name { get; }
+        public VarType Type { get; }
+
+        public Identifier(string name, VarType type) => (Name, Type) = (name, type);
+
+        public void Accept(INodeVisitor visitor) => visitor.VisitIdentifier(this);
+        public void Store(ILValueVisitor visitor, CodeGenerator value) => visitor.StoreInIdentifier(this, value);
+    }
+
+    public class Indexing : ILValue
+    {
+        public Identifier Identifier { get; }
+        public List<IEvaluable> Indices { get; }
+
+        public string Name => Identifier.Name;
+        public VarType Type { get; }
+
+        public Indexing(Identifier identifier, List<IEvaluable> indices)
+        {
+            Identifier = identifier;
+            Indices = indices;
+
+            if (Identifier.Type is VarType.ArrayT arr)
+            {
+                Type = arr.ElemType;
+                if (arr.Dimensions != Indices.Count)
+                    Compiler.Error($"Invalid {Indices.Count}D index for array of {arr.Dimensions} dimensions");
+
+                Indices.ForEach(size =>
+                {
+                    if (size.Type != VarType.Integer)
+                        Compiler.Error($"{size.Type} invalid as an array index – expected {VarType.Integer}");
+                });
+            }
+            else
+                Compiler.Error($"{identifier.Name} is not of array type");
+        }
+
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitIndexing(this);
+        public void Store(ILValueVisitor visitor, CodeGenerator value) => visitor.StoreInArray(this, value);
     }
 
     #region Operators
@@ -356,63 +400,21 @@ namespace mini_lang
 
     public class Assignment : IEvaluable
     {
-        public Identifier Lhs { get; }
+        public ILValue Lhs { get; }
         public IEvaluable Rhs { get; }
-        public bool Conversion { get; }
 
         public VarType Type => Lhs.Type;
 
-        public Assignment(Identifier identifier, IEvaluable rhs)
+        public Assignment(ILValue lValue, IEvaluable rhs)
         {
-            Lhs = identifier;
+            Lhs = lValue;
             Rhs = rhs;
 
-            if (Type == VarType.Double && Rhs.Type == VarType.Integer)
-                Conversion = true;
-            else if (Type != Rhs.Type)
-                Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {Type}");
+            if (Type != Rhs.Type && !(Type == VarType.Double && Rhs.Type == VarType.Integer))
+                Compiler.Error($"Cannot assign a value of type {Rhs.Type}, expected {Type}");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitAssignment(this);
-    }
-
-    public class ArrayAssignment : IEvaluable
-    {
-        public VarType Type { get; }
-        public Identifier Lhs { get; }
-        public IEvaluable Rhs { get; }
-        public List<IEvaluable> Indices { get; }
-        public bool Conversion { get; }
-
-        public ArrayAssignment(Identifier identifier, List<IEvaluable> indices, IEvaluable rhs)
-        {
-            Lhs = identifier;
-            Indices = indices;
-            Rhs = rhs;
-
-            if (identifier.Type is VarType.ArrayT arr)
-            {
-                Type = arr.ElemType;
-
-                if (arr.Dimensions != indices.Count)
-                    Compiler.Error($"Invalid {Indices.Count}D index for array of {arr.Dimensions} dimensions");
-
-                if (Type == VarType.Double && Rhs.Type == VarType.Integer)
-                    Conversion = true;
-                else if (Type != Rhs.Type)
-                    Compiler.Error($"Cannot assign value of type {Rhs.Type} to a variable of type {arr}");
-
-                Indices.ForEach(size =>
-                {
-                    if (size.Type != VarType.Integer)
-                        Compiler.Error($"{size.Type} invalid as an array index – expected {VarType.Integer}");
-                });
-            }
-            else
-                Compiler.Error($"Cannot index into {identifier.Name} - not an array");
-        }
-
-        void INode.Accept(INodeVisitor visitor) => visitor.VisitArrayAssignment(this);
     }
 
     #endregion
@@ -464,36 +466,6 @@ namespace mini_lang
         void INode.Accept(INodeVisitor visitor) => visitor.VisitArrayCreation(this);
     }
 
-    public class Indexing : IEvaluable
-    {
-        public Identifier Identifier { get; }
-        public List<IEvaluable> Indices { get; }
-        public VarType Type { get; }
-
-        public Indexing(Identifier identifier, List<IEvaluable> indices)
-        {
-            Identifier = identifier;
-            Indices = indices;
-
-            if (Identifier.Type is VarType.ArrayT arr)
-            {
-                Type = arr.ElemType;
-                if (arr.Dimensions != Indices.Count)
-                    Compiler.Error($"Invalid {Indices.Count}D index for array of {arr.Dimensions} dimensions");
-
-                Indices.ForEach(size =>
-                {
-                    if (size.Type != VarType.Integer)
-                        Compiler.Error($"{size.Type} invalid as an array index – expected {VarType.Integer}");
-                });
-            }
-            else
-                Compiler.Error($"{identifier.Name} is not of array type");
-        }
-
-        void INode.Accept(INodeVisitor visitor) => visitor.VisitIndexing(this);
-    }
-
     public class Write : INode
     {
         public IEvaluable Rhs { get; }
@@ -504,9 +476,9 @@ namespace mini_lang
 
     public class Read : INode
     {
-        public Identifier Target { get; } // TODO: Arrays as well
+        public ILValue Target { get; }
 
-        public Read(Identifier target) => Target = target;
+        public Read(ILValue target) => Target = target;
         void INode.Accept(INodeVisitor visitor) => visitor.VisitRead(this);
     }
 
@@ -593,7 +565,6 @@ namespace mini_lang
         void VisitExprStatement(ExprStatement exprStatement);
         void VisitDeclaration(Declaration declaration);
         void VisitAssignment(Assignment assignment);
-        void VisitArrayAssignment(ArrayAssignment arrayAssignment);
         void VisitArrayCreation(ArrayCreation arrayCreation);
         void VisitWrite(Write write);
         void VisitRead(Read read);
@@ -610,7 +581,15 @@ namespace mini_lang
         void VisitUnaryOp(UnaryOp unaryOp);
     }
 
-    public class CilBuilder : INodeVisitor
+    public delegate void CodeGenerator();
+
+    public interface ILValueVisitor
+    {
+        void StoreInIdentifier(Identifier identifier, CodeGenerator value);
+        void StoreInArray(Indexing indexing, CodeGenerator value);
+    }
+
+    public class CilBuilder : INodeVisitor, ILValueVisitor
     {
         private readonly StreamWriter _sw;
         private readonly Stack<(string, string)> _loopLabels = new Stack<(string, string)>();
@@ -634,15 +613,8 @@ namespace mini_lang
 
         private int _labelNum;
 
-        /// <summary>
-        /// A computed property used for generating unique labels.
-        /// </summary>
-        /// <value>A unique label</value>
         private string UniqueLabel(string helper) => $"LABEL_{helper}_{_labelNum++}";
 
-        /// <summary>
-        /// Path to the generated CIL file.
-        /// </summary>
         public string OutputFile { get; }
 
         public CilBuilder(string file)
@@ -652,6 +624,38 @@ namespace mini_lang
         }
 
         private void EmitLine(string code) => _sw.WriteLine(code);
+
+        // L-value helper methods
+
+        public void StoreInIdentifier(Identifier identifier, CodeGenerator value)
+        {
+            value();
+            EmitLine($"stloc {identifier.Name}");
+        }
+
+        public void StoreInArray(Indexing indexing, CodeGenerator value)
+        {
+            indexing.Identifier.Accept(this);
+            indexing.Indices.ForEach(ix => ix.Accept(this));
+
+            value();
+
+            int dim = indexing.Indices.Count;
+
+            if (dim == 1)
+            {
+                EmitLine($"stelem.{_shorts[indexing.Type]}");
+            }
+            else
+            {
+                var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
+                var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
+                EmitLine(
+                    $"call instance void {_valueTypes[indexing.Type]}[{zeros}]::Set({ints}, {_valueTypes[indexing.Type]})");
+            }
+        }
+
+        // INodeVisitor methods
 
         public void VisitProgram(Program program)
         {
@@ -730,41 +734,15 @@ namespace mini_lang
 
         public void VisitAssignment(Assignment assignment)
         {
-            assignment.Rhs.Accept(this);
-
-            if (assignment.Conversion)
-                EmitConversion(assignment.Type);
-
-            EmitLine("dup");
-            EmitLine($"stloc {assignment.Lhs.Name}");
-        }
-
-        public void VisitArrayAssignment(ArrayAssignment ars)
-        {
-            // Instead of "dup"
-            ars.Rhs.Accept(this);
-            if (ars.Conversion)
-                EmitConversion(ars.Type);
-
-            ars.Lhs.Accept(this);
-            ars.Indices.ForEach(ix => ix.Accept(this));
-
-            ars.Rhs.Accept(this);
-            if (ars.Conversion)
-                EmitConversion(ars.Type);
-
-            int dim = ars.Indices.Count;
-
-            if (dim == 1)
+            void Action()
             {
-                EmitLine($"stelem.{_shorts[ars.Type]}");
+                assignment.Rhs.Accept(this);
+                if (assignment.Type != assignment.Rhs.Type)
+                    EmitConversion(assignment.Type);
             }
-            else
-            {
-                var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
-                var ints = string.Join(", ", Enumerable.Repeat("int32", dim));
-                EmitLine($"call instance void {_valueTypes[ars.Type]}[{zeros}]::Set({ints}, {_valueTypes[ars.Type]})");
-            }
+
+            Action(); // because assignment leaves a value on the stack
+            assignment.Lhs.Store(this, Action);
         }
 
         public void VisitIndexing(Indexing indexing)
@@ -817,8 +795,8 @@ namespace mini_lang
             switch (write.Rhs.Type)
             {
                 case VarType.DoubleT _:
-                    EmitLine(@"call class [mscorlib]System.Globalization.CultureInfo 
-                               class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
+                    EmitLine(
+                        "call class [mscorlib]System.Globalization.CultureInfo class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
                     EmitLine(@"ldstr ""{0:0.000000}""");
 
                     write.Rhs.Accept(this);
@@ -838,24 +816,13 @@ namespace mini_lang
 
         public void VisitRead(Read read)
         {
-            EmitLine("call string class [mscorlib]System.Console::ReadLine()");
-            EmitLine($"ldloca {read.Target.Name}");
-            switch (read.Target.Type)
+            void Action()
             {
-                case VarType.IntegerT _:
-                    EmitLine("call bool int32::TryParse(string, [out] int32&)");
-                    break;
-                case VarType.DoubleT _:
-                    EmitLine("call bool float64::TryParse(string, [out] float64&)");
-                    break;
-                case VarType.BoolT _:
-                    EmitLine("call bool bool::TryParse(string, [out] bool&)");
-                    break;
-                case VarType.ArrayT arr:
-                    throw new NotImplementedException();
+                EmitLine("call string class [mscorlib]System.Console::ReadLine()");
+                EmitLine($"call {_valueTypes[read.Target.Type]} {_valueTypes[read.Target.Type]}::Parse(string)");
             }
 
-            EmitLine("pop");
+            read.Target.Store(this, Action);
         }
 
         public void VisitBreak(Break @break) => EmitLine($"br {_loopLabels.ElementAt(@break.Levels - 1).Item2}");

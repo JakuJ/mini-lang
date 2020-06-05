@@ -20,8 +20,8 @@ namespace UnitTests
         public void InvalidProgram(string path, int atLeast)
         {
             var errs = 0;
-            Assert.DoesNotThrow(() => { errs = CompilationErrors(path); });
-            Assert.GreaterOrEqual(errs, atLeast);
+            Assert.DoesNotThrow(() => { errs = CompilationErrors(path); }, "AST construction should not throw");
+            Assert.GreaterOrEqual(errs, atLeast, $"Expected to find at least {atLeast} errors");
             Console.Error.WriteLine($"Passed, {errs} errors found");
         }
     }

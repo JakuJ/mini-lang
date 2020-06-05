@@ -26,7 +26,7 @@ namespace UnitTests
 
             bool exited = process.WaitForExit(5000);
             Assert.IsTrue(exited, $"{program} took more than 5 seconds to finish");
-            Assert.AreEqual(0, process.ExitCode);
+            Assert.AreEqual(0, process.ExitCode, $"{program} exited with code {process.ExitCode}");
 
             return output.GetAwaiter().GetResult();
         }
