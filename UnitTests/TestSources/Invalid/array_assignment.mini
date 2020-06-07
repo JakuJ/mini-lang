@@ -3,9 +3,6 @@ program {
     double[,] ds;
     bool z;
     
-    xs[1] = 5; // not created
-    z[1] = false;
-    
     create ds [2,2];
     ds[2] = 5.4;
     ds[2, 0] = false;
@@ -14,6 +11,6 @@ program {
     ds[0, 0] = ds[0];
     ds[0, 0] = ds[0,1,2];
     ds[0, 0] = z[5];
-    ds[false, 0] = d[false, 0];
+    ds[false, 0] = ds[false, 0];
     ds[0, 3.5] = ds[0, 3.5];
 }

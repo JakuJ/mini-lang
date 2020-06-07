@@ -34,7 +34,7 @@ namespace UnitTests
             {
                 (string, int)[] cases =
                 {
-                    ("array_assignment.mini", 14),
+                    ("array_assignment.mini", 8),
                     ("array_creation.mini", 12),
                     ("array_decls.mini", 5),
                     ("array_no_index.mini", 4),
@@ -50,7 +50,7 @@ namespace UnitTests
                     ("ifelse.mini", 3),
                     ("invalid_assignment.mini", 12),
                     ("logic_ops.mini", 4),
-                    ("math_ops.mini", 7),
+                    ("math_ops.mini", 5),
                     ("missing_arg.mini", 5),
                     ("mixed_decls.mini", 3),
                     ("mixed_inner_decls.mini", 1),

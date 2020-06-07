@@ -1111,12 +1111,20 @@ namespace mini_lang
             var scanner = new Scanner(source);
             var parser  = new Parser(scanner, builder);
 
-            var errors = 0;
+            var errors        = 0;
+            var lastErrorLine = -1;
 
             Error = (message, interrupt) =>
             {
                 // Hack (or is it?): make use of line tracking in the scanner
-                string errorMessage = $"{message} on line {scanner.lineNumber}";
+                int currentLine = scanner.lineNumber;
+
+                if (currentLine == lastErrorLine)
+                    return;
+
+                lastErrorLine = currentLine;
+
+                string errorMessage = $"{message} on line {currentLine}";
                 Console.Error.WriteLine(errorMessage);
 
                 // This is safe since we're modifying a static closure using a thread-static delegate

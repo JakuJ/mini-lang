@@ -3,5 +3,7 @@ program {
     double k;
     
     x1 = 1;
-    k = a + b;
+    k = a 
+        + 
+        b;
 }
