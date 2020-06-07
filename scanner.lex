@@ -33,9 +33,9 @@ LogicOr     "|"{2}
 "["             { return (int)Tokens.LBracket; }
 "]"             { return (int)Tokens.RBracket; }
 ","             { return (int)Tokens.Comma; }
-"int"           { yylval.type = VarType.Integer; return (int)Tokens.Type; }
-"double"        { yylval.type = VarType.Double; return (int)Tokens.Type; }
-"bool"          { yylval.type = VarType.Bool; return (int)Tokens.Type; }
+"int"           { yylval.prim_type = PrimType.Integer; return (int)Tokens.Type; }
+"double"        { yylval.prim_type = PrimType.Double; return (int)Tokens.Type; }
+"bool"          { yylval.prim_type = PrimType.Bool; return (int)Tokens.Type; }
 "create"        { return (int)Tokens.Create; }
 "write"         { return (int)Tokens.Write; }
 "read"          { return (int)Tokens.Read; }
@@ -67,9 +67,9 @@ LogicOr     "|"{2}
 "/"             { return (int)Tokens.Div; }
 "+"             { return (int)Tokens.Plus; }
 
-{Integer}       { yylval.eval = new Constant(yytext, VarType.Integer); return (int)Tokens.LitInt; }
-{Real}          { yylval.eval = new Constant(yytext, VarType.Double); return (int)Tokens.LitDouble; }
-{Bool}          { yylval.eval = new Constant(yytext, VarType.Bool); return (int)Tokens.LitBool; }
+{Integer}       { yylval.eval = new Constant(yytext, PrimType.Integer); return (int)Tokens.LitInt; }
+{Real}          { yylval.eval = new Constant(yytext, PrimType.Double); return (int)Tokens.LitDouble; }
+{Bool}          { yylval.eval = new Constant(yytext, PrimType.Bool); return (int)Tokens.LitBool; }
 {Ident}         { yylval.str = yytext; return (int)Tokens.Ident; }
 {String}        { yylval.str = yytext; return (int)Tokens.String; }
 "\n"            { lineNumber++; }

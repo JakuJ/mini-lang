@@ -1,18 +1,18 @@
 program {
-    int nop;
-    int stloc;
-    int ldloc;
-    int callvirt;
-    int void;
-    int mscorlib;
-    int System;
-    int string;
-    int leave;
-    int add;
-    int or;
-    int div;
+    int[] xs;
+    double[,] ds;
+    int i;
     
-    callvirt = 5;
-    or + div / string * System;
-    nop;
+    create xs [10];
+    create ds [10, 10];
+    
+    xs[0] = 1;
+    while (i < 10) {
+        xs[i] = i;
+        ds[i, 10 - i] = i;
+        i = i + 1;
+    }
+    
+    ds[0, 0] = 5.4;
+    xs[1] = (int)ds[0, 0];
 }

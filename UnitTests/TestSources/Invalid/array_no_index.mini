@@ -1,0 +1,11 @@
+program {
+    int x;
+    int[] xs;
+    
+    create xs [5];
+    
+    write xs;
+    read xs;
+    xs;
+    x = 1 + xs;
+}

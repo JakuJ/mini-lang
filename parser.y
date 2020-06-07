@@ -20,7 +20,8 @@
     public string str;
     public int num;
     public List<string> strings;
-    public VarType type;
+    public PrimType prim_type;
+    public AbstractType any_type;
     public INode node;
     public List<INode> nodes;
     public IEvaluable eval;
@@ -32,18 +33,18 @@
 %token Assign Or And BitOr BitAnd Eq Neq Gt Gte Lt Lte Plus Minus Mult Div Not BitNot
 %token LParen RParen LBrace RBrace LBracket RBracket Semicolon Comma
 
-%token <type>   Type
-%token <str>    String Ident
-%token <eval>   LitInt LitDouble LitBool
+%token <prim_type>  Type
+%token <str>        String Ident
+%token <eval>       LitInt LitDouble LitBool
 
-%type <node>    block statement if while oneliner write read break create
-%type <nodes>   declaration declarations statements
-%type <lval>    lvalue
-%type <eval>    value_0 op_1 op_2 op_3 op_4 op_5 op_6 evaluable
-%type <evals>   sizes indexing
-%type <type>    type
-%type <strings> idents
-%type <num>     dims
+%type <node>        block statement if while oneliner write read break create
+%type <nodes>       declaration declarations statements
+%type <lval>        lvalue
+%type <eval>        value_0 op_1 op_2 op_3 op_4 op_5 op_6 evaluable
+%type <evals>       sizes indexing
+%type <any_type>    type
+%type <strings>     idents
+%type <num>         dims
 %%
 
 start: Program block                         { Program = new Program($2); } ;
@@ -65,8 +66,8 @@ declaration: type idents Ident Semicolon    { $$ = $2.Append($3).Select(x => bui
            | error                          { yyerrok(); $$ = new List<INode>(); }
            ;
 
-type: Type
-    | Type LBracket dims RBracket { $$ = new VarType.ArrayT($1, $3); }
+type: Type                          { $$ = $1 as AbstractType; }
+    | Type LBracket dims RBracket   { $$ = new ArrayType($1, $3); }
     ;
     
 dims: dims Comma    { $$ = $1 + 1; }
@@ -109,11 +110,11 @@ write: Write evaluable          { $$ = new Write($2); }
      | Write String             { $$ = new WriteString($2); }
      ;
 
-break: Break            { $$ = builder.CreateBreak(new Constant("1", VarType.Integer)); }
-     | Break LitInt     { $$ = builder.CreateBreak($2); }
+break: Break            { $$ = builder.CreateBreak(new Constant("1", PrimType.Integer)); }
+     | Break LitInt     { $$ = builder.CreateBreak($2 as Constant); }
      ;
      
-create: Create Ident indexing   { $$ = new ArrayCreation(builder.CreateIdentifier($2), $3); } ;
+create: Create Ident indexing   { $$ = new ArrayCreation(new Indexing(builder.CreateIdentifier($2), $3)); } ;
 
 indexing: LBracket sizes evaluable RBracket { $2.Add($3); $$ = $2; } ;
 
@@ -123,7 +124,7 @@ sizes: sizes evaluable Comma    { $1.Add($2); $$ = $1; }
 
 // Operators
 
-lvalue: Ident                  { $$ = builder.CreateIdentifier($1); }
+lvalue: Ident                  { $$ = new Variable(builder.CreateIdentifier($1)); }
       | Ident indexing         { $$ = new Indexing(builder.CreateIdentifier($1), $2); }
       ;
 
@@ -163,7 +164,7 @@ op_6: op_6 And op_5     { $$ = new LogicOp(LogicOp.OpType.And, $1, $3); }
     | op_6 Or op_5      { $$ = new LogicOp(LogicOp.OpType.Or, $1, $3); }
     | op_5 ;
     
-evaluable: Ident Assign evaluable               { $$ = new Assignment(builder.CreateIdentifier($1), $3); }
+evaluable: Ident Assign evaluable               { $$ = new Assignment(new Variable(builder.CreateIdentifier($1)), $3); }
          | Ident indexing Assign evaluable      { $$ = new Assignment(new Indexing(builder.CreateIdentifier($1), $2), $4); }
          | op_6 ;
 
