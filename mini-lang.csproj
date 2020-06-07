@@ -53,7 +53,6 @@
       <Content Include="Test\hello.mini.il" />
       <None Include="Test\Test.il" />
       <Resource Include="parser.y" />
-      <Content Include="Test\hello.mini" />
     </ItemGroup>
     <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
     <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
