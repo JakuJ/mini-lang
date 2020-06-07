@@ -24,7 +24,7 @@
     public INode node;
     public List<INode> nodes;
     public IEvaluable eval;
-    public ILValue lval;
+    public IAssignable lval;
     public List<IEvaluable> evals;
 }
 
@@ -113,7 +113,7 @@ break: Break            { $$ = builder.CreateBreak(new Constant("1", VarType.Int
      | Break LitInt     { $$ = builder.CreateBreak($2); }
      ;
      
-create: Create Ident indexing   { $$ = builder.CreateArrayCreation($2, $3); } ;
+create: Create Ident indexing   { $$ = new ArrayCreation(builder.CreateIdentifier($2), $3); } ;
 
 indexing: LBracket sizes evaluable RBracket { $2.Add($3); $$ = $2; } ;
 
@@ -163,7 +163,7 @@ op_6: op_6 And op_5     { $$ = new LogicOp(LogicOp.OpType.And, $1, $3); }
     | op_6 Or op_5      { $$ = new LogicOp(LogicOp.OpType.Or, $1, $3); }
     | op_5 ;
     
-evaluable: Ident Assign evaluable               { $$ = builder.CreateAssignment($1, $3); }
+evaluable: Ident Assign evaluable               { $$ = new Assignment(builder.CreateIdentifier($1), $3); }
          | Ident indexing Assign evaluable      { $$ = new Assignment(new Indexing(builder.CreateIdentifier($1), $2), $4); }
          | op_6 ;
 

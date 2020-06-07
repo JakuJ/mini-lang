@@ -37,6 +37,7 @@ namespace UnitTests
                     ("array_assignment.mini", 14),
                     ("array_creation.mini", 12),
                     ("array_decls.mini", 5),
+                    ("array_no_index.mini", 4),
                     ("bit_ops.mini", 5),
                     ("break.mini", 4),
                     ("break_n.mini", 8),
@@ -62,7 +63,6 @@ namespace UnitTests
                     ("string.mini", 6),
                     ("unary.mini", 5),
                     ("undeclared.mini", 3),
-                    ("uninitialized.mini", 2),
                     ("while.mini", 4),
                 };
 

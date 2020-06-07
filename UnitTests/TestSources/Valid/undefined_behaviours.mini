@@ -1,5 +1,6 @@
 program {
     int x;
+    double[,] xs;
     {
         int x;
         int y;
@@ -7,4 +8,6 @@ program {
         write x;
         y + 2;
     }
+    
+    write xs[1, 1];
 }

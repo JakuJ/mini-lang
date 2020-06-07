@@ -117,9 +117,9 @@ namespace mini_lang
     /// <summary>
     /// An interface for expressions that can be assigned to.
     /// </summary>
-    public interface ILValue : IEvaluable
+    public interface IAssignable : IEvaluable
     {
-        void Store(ILValueVisitor visitor, CodeGenerator value);
+        void Assign(IAssignableVisitor visitor, CodeGenerator value);
     }
 
     #endregion
@@ -129,6 +129,7 @@ namespace mini_lang
     public class Block : INode
     {
         public List<INode> Statements { get; }
+
         public Block(List<INode> statements) => Statements = statements;
         public void Accept(INodeVisitor visitor) => visitor.VisitBlock(this);
     }
@@ -142,23 +143,28 @@ namespace mini_lang
         void INode.Accept(INodeVisitor visitor) => visitor.VisitConstant(this);
     }
 
-    public class Identifier : ILValue
+    public class Identifier : IAssignable
     {
-        public string  Name { get; }
+        private string _name;
+
+        public string Name
+        {
+            get => _name;
+            private set => _name = $"'{value}'";
+        }
+
         public VarType Type { get; }
 
         public Identifier(string name, VarType type) => (Name, Type) = (name, type);
-
         public void Accept(INodeVisitor visitor) => visitor.VisitIdentifier(this);
-        public void Store(ILValueVisitor visitor, CodeGenerator value) => visitor.StoreInIdentifier(this, value);
+        public void Assign(IAssignableVisitor visitor, CodeGenerator value) => visitor.StoreInIdentifier(this, value);
     }
 
-    public class Indexing : ILValue
+    public class Indexing : IAssignable
     {
         public Identifier       Identifier { get; }
         public List<IEvaluable> Indices    { get; }
-
-        public VarType Type { get; }
+        public VarType          Type       { get; }
 
         public Indexing(Identifier identifier, List<IEvaluable> indices)
         {
@@ -178,11 +184,11 @@ namespace mini_lang
                 });
             }
             else
-                Compiler.Error($"{identifier.Name} is not of array type");
+                Compiler.Error($"Invalid indexing expression - {identifier.Name} is not of array type");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitIndexing(this);
-        public void Store(ILValueVisitor visitor, CodeGenerator value) => visitor.StoreInArray(this, value);
+        public void Assign(IAssignableVisitor visitor, CodeGenerator value) => visitor.StoreInArray(this, value);
     }
 
     #region Operators
@@ -227,8 +233,7 @@ namespace mini_lang
                     Type = VarType.Bool;
                     if (Rhs.Type != Type) InvalidType();
                     break;
-                case OpType.Conv2Int:
-                case OpType.Conv2Double:
+                default:
                     Compiler.Error($"Invalid type passed to UnaryOp constructor: {Op}", true);
                     break;
             }
@@ -253,7 +258,6 @@ namespace mini_lang
         }
 
         private void InvalidType() => Compiler.Error($"Invalid operand type: {Op.GetToken()}{Rhs.Type}");
-
         void INode.Accept(INodeVisitor visitor) => visitor.VisitUnaryOp(this);
     }
 
@@ -284,30 +288,27 @@ namespace mini_lang
             [Token("|")] BitOr,
         }
 
-        public OpType Op         { get; }
-        public bool   Conversion { get; }
+        public OpType Op { get; }
 
         public MathOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
         {
             Op = op;
             if (op == OpType.BitOr || op == OpType.BitAnd) // Bit operators only accept Integers as operands
             {
+                Type = VarType.Integer;
                 if (lhs.Type != VarType.Integer || rhs.Type != VarType.Integer)
                     InvalidType(Op.GetToken());
-
-                Type = VarType.Integer;
             }
-            else
+            else // Only + - * /
             {
                 if (lhs.Type == VarType.Bool || rhs.Type == VarType.Bool)
                 {
+                    Type = VarType.Bool; // Set some type to allow for error recovery
                     InvalidType(Op.GetToken());
-                    Type = VarType.Bool; // Set something to allow for error recovery
                 }
-                else if (lhs.Type != rhs.Type) // Only + - * /
+                else if (lhs.Type != rhs.Type) // Integers or Doubles
                 {
-                    Conversion = true;
-                    Type       = VarType.Double;
+                    Type = VarType.Double;
                 }
                 else
                 {
@@ -386,14 +387,14 @@ namespace mini_lang
 
     public class Assignment : IEvaluable
     {
-        public ILValue    Lhs { get; }
-        public IEvaluable Rhs { get; }
+        public IAssignable Lhs { get; }
+        public IEvaluable  Rhs { get; }
 
         public VarType Type => Lhs.Type;
 
-        public Assignment(ILValue lValue, IEvaluable rhs)
+        public Assignment(IAssignable assignable, IEvaluable rhs)
         {
-            Lhs = lValue;
+            Lhs = assignable;
             Rhs = rhs;
 
             if (Type != Rhs.Type && !(Type == VarType.Double && Rhs.Type == VarType.Integer))
@@ -470,9 +471,9 @@ namespace mini_lang
 
     public class Read : INode
     {
-        public ILValue Target { get; }
+        public IAssignable Target { get; }
 
-        public Read(ILValue target) => Target = target;
+        public Read(IAssignable target) => Target = target;
         void INode.Accept(INodeVisitor visitor) => visitor.VisitRead(this);
     }
 
@@ -578,13 +579,13 @@ namespace mini_lang
 
     public delegate void CodeGenerator();
 
-    public interface ILValueVisitor
+    public interface IAssignableVisitor
     {
         void StoreInIdentifier(Identifier identifier, CodeGenerator value);
         void StoreInArray(Indexing indexing, CodeGenerator value);
     }
 
-    public class CilBuilder : INodeVisitor, ILValueVisitor
+    public class CilBuilder : INodeVisitor, IAssignableVisitor
     {
         private          int                     _labelNum;
         private readonly StreamWriter            _sw;
@@ -609,9 +610,9 @@ namespace mini_lang
 
         public string OutputFile { get; }
 
-        public CilBuilder(string file)
+        public CilBuilder(string file, string outFile = null)
         {
-            OutputFile = file + ".il";
+            OutputFile = outFile ?? file + ".il";
             _sw        = new StreamWriter(OutputFile);
         }
 
@@ -716,7 +717,7 @@ namespace mini_lang
                 case VarType.DoubleT _:
                     EmitLine("conv.r8");
                     break;
-                case VarType.BoolT _: // TODO: Unit test
+                case VarType.BoolT _:
                 case VarType.IntegerT _:
                     EmitLine("conv.i4");
                     break;
@@ -733,7 +734,7 @@ namespace mini_lang
             }
 
             Action(); // because assignment leaves a value on the stack
-            assignment.Lhs.Store(this, Action);
+            assignment.Lhs.Assign(this, Action);
         }
 
         public void VisitIndexing(Indexing indexing)
@@ -796,7 +797,7 @@ namespace mini_lang
                     EmitLine("call string string::Format(class [mscorlib]System.IFormatProvider, string, object)");
                     EmitLine("call void [mscorlib]System.Console::Write(string)");
                     break;
-                case VarType.ArrayT _: // TODO: printing whole arrays?
+                case VarType.ArrayT _:
                     throw new NotImplementedException();
                 default:
                     write.Rhs.Accept(this);
@@ -819,7 +820,7 @@ namespace mini_lang
                 EmitLine($"call {_longTypes[read.Target.Type]} {_longTypes[read.Target.Type]}::Parse(string)");
             }
 
-            read.Target.Store(this, Action);
+            read.Target.Assign(this, Action);
         }
 
         public void VisitBreak(Break @break) => EmitLine($"br {_loopLabels.ElementAt(@break.Levels - 1).Item2}");
@@ -828,13 +829,17 @@ namespace mini_lang
 
         public void VisitWhile(While @while)
         {
-            string startWhile = UniqueLabel("WHILE_START"), endWhile = UniqueLabel("WHILE_END");
+            string startWhile = UniqueLabel("WHILE"),
+                   endWhile   = UniqueLabel("ENDWHILE");
+
             EmitLine($"{startWhile}:");
             @while.Condition.Accept(this);
             EmitLine($"brfalse {endWhile}");
+
             _loopLabels.Push((startWhile, endWhile));
             @while.Body.Accept(this);
             _loopLabels.Pop();
+
             EmitLine($"br {startWhile}");
             EmitLine($"{endWhile}:");
         }
@@ -855,42 +860,30 @@ namespace mini_lang
                 EmitLine($"{endLabel}:");
             }
             else
-            {
                 EmitLine($"{elseLabel}:");
-            }
         }
 
         public void VisitMathOp(MathOp mathOp)
         {
             mathOp.Lhs.Accept(this);
-            if (mathOp.Conversion && mathOp.Lhs.Type != mathOp.Type)
+            if (mathOp.Lhs.Type != mathOp.Type) // Only double / int type mismatch is possible at this point
                 EmitConversion(mathOp.Type);
 
             mathOp.Rhs.Accept(this);
-            if (mathOp.Conversion && mathOp.Rhs.Type != mathOp.Type)
+            if (mathOp.Rhs.Type != mathOp.Type)
                 EmitConversion(mathOp.Type);
 
-            switch (mathOp.Op)
+            var opcodes = new Dictionary<MathOp.OpType, string>
             {
-                case MathOp.OpType.Add:
-                    EmitLine("add");
-                    break;
-                case MathOp.OpType.Sub:
-                    EmitLine("sub");
-                    break;
-                case MathOp.OpType.Mult:
-                    EmitLine("mul");
-                    break;
-                case MathOp.OpType.Div:
-                    EmitLine("div");
-                    break;
-                case MathOp.OpType.BitAnd:
-                    EmitLine("and");
-                    break;
-                case MathOp.OpType.BitOr:
-                    EmitLine("or");
-                    break;
-            }
+                {MathOp.OpType.Add, "add"},
+                {MathOp.OpType.Sub, "sub"},
+                {MathOp.OpType.Mult, "mul"},
+                {MathOp.OpType.Div, "div"},
+                {MathOp.OpType.BitAnd, "and"},
+                {MathOp.OpType.BitOr, "or"},
+            };
+
+            EmitLine(opcodes[mathOp.Op]);
         }
 
         public void VisitCompOp(CompOp compOp)
@@ -923,6 +916,8 @@ namespace mini_lang
                 case CompOp.OpType.Lte:
                     EmitLine("cgt\nldc.i4.0\nceq");
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
 
@@ -957,6 +952,8 @@ namespace mini_lang
                 case UnaryOp.OpType.Conv2Double:
                     EmitConversion(VarType.Double);
                     break;
+                default:
+                    throw new ArgumentOutOfRangeException();
             }
         }
 
@@ -990,18 +987,16 @@ namespace mini_lang
 
     public class AstBuilder
     {
-        private class Variable
+        private readonly struct Variable
         {
             internal readonly string  Name;
             internal readonly VarType Type;
             internal readonly bool    CanBeShadowed;
-            internal          bool    Initialized;
 
-            public Variable(string name, VarType type, bool initialized, bool canBeShadowed)
+            public Variable(string name, VarType type, bool canBeShadowed)
             {
                 Name          = name;
                 Type          = type;
-                Initialized   = initialized;
                 CanBeShadowed = canBeShadowed;
             }
         }
@@ -1009,6 +1004,7 @@ namespace mini_lang
         private        int _loopLevel;
         private static int _uniqueId;
         private static string UniqueId(string id) => $"{id}_{_uniqueId++}";
+
         private readonly Stack<Dictionary<string, Variable>> _scopeStack;
         private          Dictionary<string, Variable> CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
 
@@ -1017,12 +1013,7 @@ namespace mini_lang
         public Identifier CreateIdentifier(string name)
         {
             if (CurrentScope.TryGetValue(name, out Variable variable))
-            {
-                if (!variable.Initialized)
-                    Compiler.Error($"Attempting to access uninitialized variable {name}");
-
                 return new Identifier(variable.Name, variable.Type);
-            }
 
             Compiler.Error($"Variable {name} has not been declared, assuming {VarType.Integer} for further analysis");
             return new Identifier(name, VarType.Integer);
@@ -1038,7 +1029,7 @@ namespace mini_lang
                     // Actually declares another one
                     // TODO: issue a warning?
                     string trueName = UniqueId(name);
-                    CurrentScope[name] = new Variable(trueName, type, false, false);
+                    CurrentScope[name] = new Variable(trueName, type, false);
 
                     // Skips the initialization check
                     // TODO: do not initialize the value (skip "init" in codegen)
@@ -1050,24 +1041,8 @@ namespace mini_lang
             }
 
             // Declare a new variable
-            CurrentScope[name] = new Variable(name, type, _scopeStack.Count == 1 && !(type is VarType.ArrayT), false);
+            CurrentScope[name] = new Variable(name, type, false);
             return new Declaration(new Identifier(name, type));
-        }
-
-        public Assignment CreateAssignment(string name, IEvaluable rhs)
-        {
-            if (CurrentScope.TryGetValue(name, out Variable variable))
-                variable.Initialized = true;
-
-            return new Assignment(CreateIdentifier(name), rhs);
-        }
-
-        public ArrayCreation CreateArrayCreation(string name, List<IEvaluable> sizes)
-        {
-            if (CurrentScope.TryGetValue(name, out Variable variable))
-                variable.Initialized = true;
-
-            return new ArrayCreation(CreateIdentifier(name), sizes);
         }
 
         public Break CreateBreak(IEvaluable rhs)
@@ -1098,8 +1073,8 @@ namespace mini_lang
         {
             _scopeStack.Push(CurrentScope == null
                                  ? new Dictionary<string, Variable>()
-                                 : CurrentScope.ToDictionary(
-                                     e => e.Key, e => new Variable(e.Value.Name, e.Value.Type, true, true)));
+                                 : CurrentScope.ToDictionary(e => e.Key,
+                                                             e => new Variable(e.Value.Name, e.Value.Type, true)));
         }
 
         public void PopScope() => _scopeStack.Pop();
