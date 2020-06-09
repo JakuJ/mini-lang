@@ -216,11 +216,10 @@ namespace mini_lang
     {
         public enum OpType
         {
-            [Token("~")]        BitwiseNot,
-            [Token("!")]        LogicalNot,
-            [Token("-")]        IntNegate,
-            [Token("(int)")]    Conv2Int,
-            [Token("(double)")] Conv2Double
+            [Token("~")]      BitwiseNot,
+            [Token("!")]      LogicalNot,
+            [Token("-")]      IntNegate,
+            [Token("(type)")] Conversion,
         }
 
         public PrimType EvalType { get; }
@@ -242,38 +241,33 @@ namespace mini_lang
             {
                 case OpType.IntNegate:
                     EvalType = Rhs.EvalType;
-                    if (EvalType == PrimType.Bool) InvalidType();
+                    if (EvalType == PrimType.Bool)
+                        InvalidType();
                     break;
                 case OpType.BitwiseNot:
                     EvalType = PrimType.Integer;
-                    if (Rhs.EvalType != EvalType) InvalidType();
+                    if (Rhs.EvalType != EvalType)
+                        InvalidType();
                     break;
                 case OpType.LogicalNot:
                     EvalType = PrimType.Bool;
-                    if (Rhs.EvalType != EvalType) InvalidType();
+                    if (Rhs.EvalType != EvalType)
+                        InvalidType();
                     break;
                 default:
-                    Compiler.Error($"Invalid type passed to UnaryOp constructor: {Op}", true);
+                    Compiler.Error("Invalid OpType passed to UnaryOp constructor", true);
                     break;
             }
         }
 
-        /// <summary>
-        /// Use this constructor for explicit conversions.
-        /// </summary>
-        /// <param name="convertTo">Target type of the conversion.</param>
-        /// <param name="rhs">The value to be converted.</param>
-        public UnaryOp(PrimType convertTo, IEvaluable rhs)
+        public UnaryOp(PrimType type, IEvaluable rhs)
         {
-            EvalType = convertTo;
+            Op       = OpType.Conversion;
             Rhs      = rhs;
+            EvalType = type;
 
-            if (convertTo is PrimType.IntegerT)
-                Op = OpType.Conv2Int;
-            else if (convertTo is PrimType.DoubleT)
-                Op = OpType.Conv2Double;
-            else
-                Compiler.Error($"Explicit conversion to {convertTo} not supported");
+            if (EvalType == PrimType.Bool)
+                Compiler.Error($"Conversion to {PrimType.Bool} not allowed");
         }
 
         private void InvalidType() => Compiler.Error($"Invalid operand type: {Op.GetToken()}{Rhs.EvalType}");
@@ -440,8 +434,9 @@ namespace mini_lang
     public class Declaration : INode
     {
         public Identifier Identifier { get; }
+        public bool       Init       { get; }
 
-        public Declaration(Identifier identifier) => Identifier = identifier;
+        public Declaration(Identifier identifier, bool init) => (Identifier, Init) = (identifier, init);
         void INode.Accept(INodeVisitor visitor) => visitor.VisitDeclaration(this);
     }
 
@@ -671,21 +666,22 @@ namespace mini_lang
 
         public void VisitDeclaration(Declaration declaration)
         {
-            Identifier ident = declaration.Identifier;
+            Identifier ident   = declaration.Identifier;
+            string     initStr = declaration.Init ? "init " : "";
 
             switch (ident.Type)
             {
                 case ArrayType arr when arr.Dimensions == 1:
-                    EmitLine($".locals init ( {_longTypes[arr.ElemType]}[] {ident.Name} )");
+                    EmitLine($".locals {initStr}( {_longTypes[arr.ElemType]}[] {ident.Name} )");
                     break;
                 case ArrayType arr:
                 {
                     var zeros = string.Join(",", Enumerable.Repeat("0...", arr.Dimensions));
-                    EmitLine($".locals init ( {_longTypes[arr.ElemType]}[{zeros}] {ident.Name} )");
+                    EmitLine($".locals {initStr}( {_longTypes[arr.ElemType]}[{zeros}] {ident.Name} )");
                     break;
                 }
                 case PrimType prim:
-                    EmitLine($".locals init ( {_longTypes[prim]} {ident.Name} )");
+                    EmitLine($".locals {initStr}( {_longTypes[prim]} {ident.Name} )");
                     break;
             }
         }
@@ -713,8 +709,7 @@ namespace mini_lang
                 case PrimType.DoubleT _:
                     EmitLine("conv.r8");
                     break;
-                case PrimType.BoolT _:
-                case PrimType.IntegerT _:
+                default:
                     EmitLine("conv.i4");
                     break;
             }
@@ -940,11 +935,8 @@ namespace mini_lang
                 case UnaryOp.OpType.IntNegate:
                     EmitLine("neg");
                     break;
-                case UnaryOp.OpType.Conv2Int:
-                    EmitConversion(PrimType.Integer);
-                    break;
-                case UnaryOp.OpType.Conv2Double:
-                    EmitConversion(PrimType.Double);
+                case UnaryOp.OpType.Conversion:
+                    EmitConversion(unaryOp.EvalType);
                     break;
                 default:
                     throw new ArgumentOutOfRangeException();
@@ -1023,8 +1015,7 @@ namespace mini_lang
                     var    newIdentifier = new Identifier(uniqueName, type);
                     CurrentScope[name] = new VariableInfo(newIdentifier, false);
 
-                    // TODO: do not initialize the value (skip "init" in code generation)
-                    return new Declaration(newIdentifier);
+                    return new Declaration(newIdentifier, false);
                 }
 
                 Compiler.Error($"Redeclaration of variable {name}");
@@ -1034,7 +1025,7 @@ namespace mini_lang
             // Declare a new variable
             var ident = new Identifier(name, type);
             CurrentScope[name] = new VariableInfo(ident, false);
-            return new Declaration(ident);
+            return new Declaration(ident, _scopeStack.Count == 1);
         }
 
         public Break CreateBreak(Constant rhs)

@@ -23,12 +23,7 @@ namespace UnitTests
         {
             Assert.Throws<AstException>(() =>
             {
-                var unused = new UnaryOp(UnaryOp.OpType.Conv2Int, null);
-            });
-
-            Assert.Throws<AstException>(() =>
-            {
-                var unused = new UnaryOp(UnaryOp.OpType.Conv2Double, null);
+                var unused = new UnaryOp(UnaryOp.OpType.Conversion, null);
             });
         }
     }
