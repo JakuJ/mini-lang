@@ -18,20 +18,20 @@ namespace UnitTests
         [TestCaseSource(typeof(Data), nameof(Data.AllPrograms))]
         public void CorrectProgram(string path)
         {
-            var errs = 0;
+            var     errs    = 0;
             Program program = null;
 
             Assert.DoesNotThrow(() =>
-                {
-                    (Program p, int errors) = RunCompiler(path);
-                    errs = errors;
-                    program = p;
-                },
-                "AST construction should not throw");
+                                {
+                                    (Program p, int errors) = RunCompiler(path);
+                                    errs                    = errors;
+                                    program                 = p;
+                                },
+                                "AST construction should not throw");
 
             Assert.Zero(errs);
 
-            var codeGen = new CilBuilder(Path.Combine(TestContext.CurrentContext.WorkDirectory, path));
+            var codeGen = new CodeBuilder(Path.Combine(TestContext.CurrentContext.WorkDirectory, path));
             Assert.DoesNotThrow(() => { program.Accept(codeGen); }, "Code generation should not throw");
 
             string ilPath = codeGen.OutputFile;

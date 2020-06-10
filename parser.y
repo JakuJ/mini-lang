@@ -47,7 +47,7 @@
 %type <num>         dims
 %%
 
-start: Program block                         { Program = new Program($2); } ;
+start: Program block                         { Program = new Program($2 as Block); } ;
 
 block: LBrace                                { builder.PushScope(); }
        declarations statements RBrace        { $3.AddRange($4); $$ = new Block($3); builder.PopScope(); } ;

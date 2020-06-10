@@ -11,7 +11,9 @@ namespace mini_lang
 
     /// <inheritdoc />
     /// <summary>
-    /// This attribute is used to represent a mini-language token string for a value in an enum.
+    /// This attribute is used to attach a string value to an enum.
+    /// Mostly used to allow for more verbose error messages when there's
+    /// something wrong with an operator or its operands.
     /// </summary>
     [AttributeUsage(AttributeTargets.Field)]
     public class TokenAttribute : Attribute
@@ -24,8 +26,8 @@ namespace mini_lang
     {
         /// <summary>
         /// Will get the string value for a given enums value.
-        /// This will only work if you assign the StringValue attribute to
-        /// the items in your enum.
+        /// This will only work if there are Token attributes
+        /// assigned to the items in the enum.
         /// </summary>
         public static string GetToken(this Enum value)
         {
@@ -38,11 +40,12 @@ namespace mini_lang
             // Get the Token attributes
             if (fieldInfo.GetCustomAttributes(typeof(TokenAttribute), false) is TokenAttribute[] attribs)
             {
-                // Return the first if there was a match.
-                return attribs.Length > 0 ? attribs[0].Token : null;
+                // Return the first value if there was a match.
+                if (attribs.Length > 0)
+                    return attribs[0].Token;
             }
 
-            return "<??>"; // TODO: throw an exception?
+            return null;
         }
     }
 
@@ -51,8 +54,7 @@ namespace mini_lang
     #region Common
 
     /// <summary>
-    /// An abstract class serving as a root of the type system.
-    /// Think "object" in C#.
+    /// An abstract class serving as a root for the type system.
     /// </summary>
     public abstract class AbstractType
     {
@@ -92,8 +94,8 @@ namespace mini_lang
 
     public class ArrayType : AbstractType
     {
-        public int      Dimensions { get; }
         public PrimType ElemType   { get; }
+        public int      Dimensions { get; }
 
         public ArrayType(PrimType elemType, int dimensions) : base($"{elemType}[{dimensions}]")
         {
@@ -108,7 +110,6 @@ namespace mini_lang
     /// <summary>
     /// An interface for arbitrary nodes in the AST.
     /// </summary>
-    /// <seealso cref="INodeVisitor"/>
     public interface INode
     {
         void Accept(INodeVisitor visitor);
@@ -125,7 +126,7 @@ namespace mini_lang
 
     /// <inheritdoc />
     /// <summary>
-    /// An interface for expressions that can be assigned to.
+    /// An interface for things that can be assigned to.
     /// </summary>
     public interface IAssignable : IEvaluable
     {
@@ -172,11 +173,13 @@ namespace mini_lang
             if (ident.Type is PrimType prim)
                 EvalType = prim;
             else
-                Compiler.Error("Attempting to use a complex object as a primitive one");
+                Compiler.Error($"Attempting to use an object of complex type {ident.Type} as a primitive");
         }
 
-        public void Accept(INodeVisitor visitor) => visitor.VisitVariable(this);
-        public void Assign(IAssignableVisitor visitor, CodeGenerator value) => visitor.StoreInVariable(this, value);
+        void INode.Accept(INodeVisitor visitor) => visitor.VisitVariable(this);
+
+        void IAssignable.Assign(IAssignableVisitor visitor, CodeGenerator value) =>
+            visitor.StoreInVariable(this, value);
     }
 
     public class Indexing : IAssignable
@@ -194,12 +197,12 @@ namespace mini_lang
             {
                 EvalType = arr.ElemType;
                 if (arr.Dimensions != Indices.Count)
-                    Compiler.Error($"Invalid {Indices.Count}D index for array of {arr.Dimensions} dimensions");
+                    Compiler.Error($"Invalid {Indices.Count}D index for {arr.Dimensions}-dimensional array");
 
                 Indices.ForEach(size =>
                 {
                     if (size.EvalType != PrimType.Integer)
-                        Compiler.Error($"{size.EvalType} invalid as an array index – expected {PrimType.Integer}");
+                        Compiler.Error($"Invalid array index type {size.EvalType} – expected an {PrimType.Integer}");
                 });
             }
             else
@@ -207,7 +210,7 @@ namespace mini_lang
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitIndexing(this);
-        public void Assign(IAssignableVisitor visitor, CodeGenerator value) => visitor.StoreInArray(this, value);
+        void IAssignable.Assign(IAssignableVisitor visitor, CodeGenerator value) => visitor.StoreInArray(this, value);
     }
 
     #region Operators
@@ -222,10 +225,9 @@ namespace mini_lang
             [Token("(type)")] Conversion,
         }
 
-        public PrimType EvalType { get; }
-
-        public OpType     Op  { get; }
-        public IEvaluable Rhs { get; }
+        public PrimType   EvalType { get; }
+        public OpType     Op       { get; }
+        public IEvaluable Rhs      { get; }
 
         /// <summary>
         /// Use this constructor for unary operators other than explicit conversions.
@@ -254,8 +256,8 @@ namespace mini_lang
                     if (Rhs.EvalType != EvalType)
                         InvalidType();
                     break;
-                default:
-                    Compiler.Error("Invalid OpType passed to UnaryOp constructor", true);
+                case OpType.Conversion:
+                    Compiler.Error("Invalid conversion - no type specified", true);
                     break;
             }
         }
@@ -267,7 +269,7 @@ namespace mini_lang
             EvalType = type;
 
             if (EvalType == PrimType.Bool)
-                Compiler.Error($"Conversion to {PrimType.Bool} not allowed");
+                Compiler.Error($"Illegal explicit conversion to {PrimType.Bool}");
         }
 
         private void InvalidType() => Compiler.Error($"Invalid operand type: {Op.GetToken()}{Rhs.EvalType}");
@@ -286,8 +288,8 @@ namespace mini_lang
 
         protected BinOp(IEvaluable lhs, IEvaluable rhs) => (Lhs, Rhs) = (lhs, rhs);
 
-        protected void InvalidType(string op) =>
-            Compiler.Error($"Invalid operand types: {Lhs.EvalType} {op} {Rhs.EvalType}");
+        protected void InvalidType(Enum op) =>
+            Compiler.Error($"Invalid operand types: {Lhs.EvalType} {op.GetToken() ?? "??"} {Rhs.EvalType}");
 
         public abstract void Accept(INodeVisitor visitor);
     }
@@ -309,18 +311,21 @@ namespace mini_lang
         public MathOp(OpType op, IEvaluable lhs, IEvaluable rhs) : base(lhs, rhs)
         {
             Op = op;
-            if (op == OpType.BitOr || op == OpType.BitAnd) // Bit operators only accept Integers as operands
+
+            // Bit operators only accept Integers as operands
+            if (op == OpType.BitOr || op == OpType.BitAnd)
             {
                 EvalType = PrimType.Integer;
                 if (lhs.EvalType != PrimType.Integer || rhs.EvalType != PrimType.Integer)
-                    InvalidType(Op.GetToken());
+                    InvalidType(Op);
             }
             else // Only + - * /
             {
                 if (lhs.EvalType == PrimType.Bool || rhs.EvalType == PrimType.Bool)
                 {
-                    EvalType = PrimType.Bool; // Set some type to allow for error recovery
-                    InvalidType(Op.GetToken());
+                    // Setting some type to allow for error recovery
+                    EvalType = PrimType.Bool;
+                    InvalidType(Op);
                 }
                 else if (lhs.EvalType != rhs.EvalType) // Integers or Doubles
                 {
@@ -362,20 +367,19 @@ namespace mini_lang
                     return;
 
                 if (lhs.EvalType == PrimType.Bool || rhs.EvalType == PrimType.Bool)
-                    InvalidType();
+                    InvalidType(Op);
                 else
                     CastTo = PrimType.Double;
             }
             else
             {
                 if (lhs.EvalType == PrimType.Bool || rhs.EvalType == PrimType.Bool)
-                    InvalidType();
+                    InvalidType(Op);
                 else if (lhs.EvalType != rhs.EvalType)
                     CastTo = PrimType.Double;
             }
         }
 
-        private void InvalidType() => InvalidType(Op.GetToken());
         public override void Accept(INodeVisitor visitor) => visitor.VisitCompOp(this);
     }
 
@@ -395,7 +399,7 @@ namespace mini_lang
             EvalType = PrimType.Bool;
 
             if (Lhs.EvalType != PrimType.Bool || Rhs.EvalType != PrimType.Bool)
-                InvalidType(Op.GetToken());
+                InvalidType(Op);
         }
 
         public override void Accept(INodeVisitor visitor) => visitor.VisitLogicOp(this);
@@ -427,6 +431,7 @@ namespace mini_lang
     public class ExprStatement : INode
     {
         public IEvaluable Expression { get; }
+
         public ExprStatement(IEvaluable expression) => Expression = expression;
         void INode.Accept(INodeVisitor visitor) => visitor.VisitExprStatement(this);
     }
@@ -434,9 +439,9 @@ namespace mini_lang
     public class Declaration : INode
     {
         public Identifier Identifier { get; }
-        public bool       Init       { get; }
+        public bool       Initialize { get; }
 
-        public Declaration(Identifier identifier, bool init) => (Identifier, Init) = (identifier, init);
+        public Declaration(Identifier identifier, bool init) => (Identifier, Initialize) = (identifier, init);
         void INode.Accept(INodeVisitor visitor) => visitor.VisitDeclaration(this);
     }
 
@@ -485,7 +490,7 @@ namespace mini_lang
         {
             Levels = levels;
             if (Levels < 1)
-                Compiler.Error("Break level not positive");
+                Compiler.Error("Break level must be positive");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitBreak(this);
@@ -507,7 +512,7 @@ namespace mini_lang
             Body      = body;
 
             if (condition.EvalType != PrimType.Bool)
-                Compiler.Error($"While loop condition must evaluate to {PrimType.Bool}, not {condition.EvalType}");
+                Compiler.Error($"While loop condition evaluates to {condition.EvalType}, expected {PrimType.Bool}");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitWhile(this);
@@ -532,7 +537,8 @@ namespace mini_lang
     public class Program : INode
     {
         public Block MainBlock { get; }
-        public Program(INode mainBlock) => MainBlock = mainBlock as Block;
+
+        public Program(Block mainBlock) => MainBlock = mainBlock;
         public void Accept(INodeVisitor visitor) => visitor.VisitProgram(this);
     }
 
@@ -580,7 +586,7 @@ namespace mini_lang
         void StoreInArray(Indexing indexing, CodeGenerator value);
     }
 
-    public class CilBuilder : INodeVisitor, IAssignableVisitor
+    public class CodeBuilder : INodeVisitor, IAssignableVisitor
     {
         private          int                     _labelNum;
         private readonly StreamWriter            _sw;
@@ -605,7 +611,7 @@ namespace mini_lang
 
         public string OutputFile { get; }
 
-        public CilBuilder(string file, string outFile = null)
+        public CodeBuilder(string file, string outFile = null)
         {
             OutputFile = outFile ?? file + ".il";
             _sw        = new StreamWriter(OutputFile);
@@ -613,7 +619,7 @@ namespace mini_lang
 
         private void EmitLine(string code) => _sw.WriteLine(code);
 
-        // L-value helper methods
+        // IAssignableVisitor methods
 
         public void StoreInVariable(Variable variable, CodeGenerator value)
         {
@@ -638,8 +644,7 @@ namespace mini_lang
             {
                 var zeros = string.Join(",", Enumerable.Repeat("0...", dim));
                 var ints  = string.Join(", ", Enumerable.Repeat("int32", dim));
-                EmitLine(
-                    $"call instance void {_longTypes[indexing.EvalType]}[{zeros}]::Set({ints}, {_longTypes[indexing.EvalType]})");
+                EmitLine($"call instance void {_longTypes[indexing.EvalType]}[{zeros}]::Set({ints}, {_longTypes[indexing.EvalType]})");
             }
         }
 
@@ -667,7 +672,7 @@ namespace mini_lang
         public void VisitDeclaration(Declaration declaration)
         {
             Identifier ident   = declaration.Identifier;
-            string     initStr = declaration.Init ? "init " : "";
+            string     initStr = declaration.Initialize ? "init " : "";
 
             switch (ident.Type)
             {
@@ -855,7 +860,7 @@ namespace mini_lang
         public void VisitMathOp(MathOp mathOp)
         {
             mathOp.Lhs.Accept(this);
-            if (mathOp.Lhs.EvalType != mathOp.EvalType) // Only double / int type mismatch is possible at this point
+            if (mathOp.Lhs.EvalType != mathOp.EvalType)
                 EmitConversion(mathOp.EvalType);
 
             mathOp.Rhs.Accept(this);
@@ -905,8 +910,6 @@ namespace mini_lang
                 case CompOp.OpType.Lte:
                     EmitLine("cgt\nldc.i4.0\nceq");
                     break;
-                default:
-                    throw new ArgumentOutOfRangeException();
             }
         }
 
@@ -938,8 +941,6 @@ namespace mini_lang
                 case UnaryOp.OpType.Conversion:
                     EmitConversion(unaryOp.EvalType);
                     break;
-                default:
-                    throw new ArgumentOutOfRangeException();
             }
         }
 
@@ -991,7 +992,7 @@ namespace mini_lang
         private static string UniqueId(string id) => $"{id}_{_uniqueId++}";
 
         private readonly Stack<Dictionary<string, VariableInfo>> _scopeStack;
-        private Dictionary<string, VariableInfo> CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
+        private          Dictionary<string, VariableInfo>        CurrentScope => _scopeStack.Count > 0 ? _scopeStack.Peek() : null;
 
         public AstBuilder() => _scopeStack = new Stack<Dictionary<string, VariableInfo>>();
 
@@ -1013,8 +1014,8 @@ namespace mini_lang
                     // Actually declare another one
                     string uniqueName    = UniqueId(name);
                     var    newIdentifier = new Identifier(uniqueName, type);
-                    CurrentScope[name] = new VariableInfo(newIdentifier, false);
 
+                    CurrentScope[name] = new VariableInfo(newIdentifier, false);
                     return new Declaration(newIdentifier, false);
                 }
 
@@ -1167,7 +1168,7 @@ namespace mini_lang
                 return 1;
             }
 
-            var generator = new CilBuilder(file);
+            var generator = new CodeBuilder(file);
             program.Accept(generator);
 
             return 0;
