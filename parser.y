@@ -7,12 +7,6 @@
 %{  
     private AstBuilder builder;
     public Program Program { get; private set; }
-    
-    private void ParseError(string message)
-    {
-        Console.Error.WriteLine(message + " on line " + _scanner.lineNumber.ToString());
-        _scanner.Errors++;
-    }
 %}
 
 %union
@@ -50,10 +44,12 @@
 start: Program block                         { Program = new Program($2 as Block); } ;
 
 block: LBrace                                { builder.PushScope(); }
-       declarations statements RBrace        { $3.AddRange($4); $$ = new Block($3); builder.PopScope(); } ;
+       declarations statements RBrace        { $3.AddRange($4); $$ = new Block($3); builder.PopScope(); }
+     | LBrace error RBrace                   { yyerrok(); }
+     ;
 
-declarations: declarations declaration              { $1.AddRange($2); $$ = $1; }
-            |                                       { $$ = new List<INode>(); }
+declarations: declarations declaration       { $1.AddRange($2); $$ = $1; }
+            |                                { $$ = new List<INode>(); }
             ;
 
 statements: statements statement    { $1.Add($2); $$ = $1; }
@@ -62,8 +58,6 @@ statements: statements statement    { $1.Add($2); $$ = $1; }
           
 declaration: type idents Ident Semicolon    { $$ = $2.Append($3).Select(x => builder.CreateDeclaration(x, $1) as INode).ToList(); }
            | error Semicolon                { yyerrok(); $$ = new List<INode>(); }
-           | error EOF
-           | error                          { yyerrok(); $$ = new List<INode>(); }
            ;
 
 type: Type                          { $$ = $1 as AbstractType; }
@@ -82,9 +76,7 @@ statement: block
          | while
          | if
          | oneliner Semicolon
-         | error Semicolon      { yyerrok(); }
-         | error EOF
-         | error                { yyerrok(); }
+         | error Semicolon              { yyerrok(); }
          ;
 
 while: While LParen evaluable RParen    { builder.PushLoop(); }
@@ -164,15 +156,12 @@ op_6: op_6 And op_5     { $$ = new LogicOp(LogicOp.OpType.And, $1, $3); }
     | op_6 Or op_5      { $$ = new LogicOp(LogicOp.OpType.Or, $1, $3); }
     | op_5 ;
     
-evaluable: Ident Assign evaluable               { $$ = new Assignment(new Variable(builder.CreateIdentifier($1)), $3); }
-         | Ident indexing Assign evaluable      { $$ = new Assignment(new Indexing(builder.CreateIdentifier($1), $2), $4); }
+evaluable: Ident Assign evaluable           { $$ = new Assignment(new Variable(builder.CreateIdentifier($1)), $3); }
+         | Ident indexing Assign evaluable  { $$ = new Assignment(new Indexing(builder.CreateIdentifier($1), $2), $4); }
          | op_6 ;
 
 %%
 
-private Scanner _scanner;
-
 public Parser(Scanner scanner, AstBuilder builder) : base(scanner) { 
-       _scanner = scanner;
-       this.builder = builder;
+    this.builder = builder;
 }

@@ -1,25 +1,15 @@
 %using QUT.Gppg;
+%using System.Linq;
 %using mini_lang;
 %namespace GardensPoint
 %option codePage:65001 out:Scanner.cs
-
-%{
-    public int lineNumber = 1;
-    public int Errors { get; set; }
-    
-    public override void yyerror(string message, params object[] args)
-    {
-        Console.Error.WriteLine(message + " on line " + lineNumber.ToString());
-        Errors++;
-    }
-%}
 
 Integer     ("0"|[1-9][0-9]*)
 Real        ("0"|[1-9][0-9]*)\.[0-9]+
 Bool        ("true"|"false")
 Ident       ([a-zA-Z][a-zA-Z0-9]*)
-Comment     "//".*
-String      "\""[^\n\"]*"\""
+Comment     "//".*\n
+String      \"(\\.|[^"\\\n])*\"
 BitAnd      "&"{1}
 LogicAnd    "&"{2}
 BitOr       "|"{1}
@@ -72,9 +62,13 @@ LogicOr     "|"{2}
 {Bool}          { yylval.eval = new Constant(yytext, PrimType.Bool); return (int)Tokens.LitBool; }
 {Ident}         { yylval.str = yytext; return (int)Tokens.Ident; }
 {String}        { yylval.str = yytext; return (int)Tokens.String; }
-"\n"            { lineNumber++; }
 <<EOF>>         { return (int)Tokens.EOF; }
 {Comment}       { }
 " "             { }
 "\t"            { }
-.               { yyerror("Invalid token: " + yytext); return (int)Tokens.error; }
+"\n"            { }
+.               { InvalidToken(yytext); }
+
+%{
+    yylloc = new LexLocation(tokLin,tokCol,tokELin,tokECol);
+%}

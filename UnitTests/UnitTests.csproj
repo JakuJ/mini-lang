@@ -287,6 +287,9 @@
         <Content Update="TestSources\Valid\cil_keywords.mini">
             <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
         </Content>
+        <Content Update="TestSources\Outputs\strings.mini">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Content>
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\mini-lang.csproj">

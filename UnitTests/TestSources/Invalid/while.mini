@@ -1,7 +1,7 @@
 program {
-    while true {} // Missing parentheses
-    
     while (1 < 2) {} ; // Semicolon not allowed
+    
+    while true {} // Missing parentheses
     
     while (1) {} // int
     

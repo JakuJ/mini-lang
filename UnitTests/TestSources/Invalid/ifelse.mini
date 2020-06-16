@@ -2,9 +2,9 @@ program {
     
     int k;
     
-    if true {}
-    
     if (1 < 2) {} ;
+    
+    if true {}
     
     if (k < 10)
         k = k + 1;

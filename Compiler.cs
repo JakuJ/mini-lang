@@ -5,6 +5,46 @@ using System.Linq;
 using System.Reflection;
 using GardensPoint;
 
+namespace GardensPoint
+{
+    public sealed partial class Scanner
+    {
+        private string[] _sourceLines;
+
+        private string SourceLine(int line)
+        {
+            if (_sourceLines == null)
+                _sourceLines = File.ReadAllLines(Buffer.FileName);
+
+            return _sourceLines[line];
+        }
+
+        public int Errors { get; private set; }
+
+        public override void yyerror(string message, params object[] args)
+        {
+            Errors++;
+
+            if (yylloc.StartColumn >= 0 && yylloc.EndColumn > yylloc.StartColumn)
+            {
+                string line       = SourceLine(yylloc.StartLine - 1);
+                var    whitespace = string.Join("", line.Select(c => c == '\t' ? '\t' : ' ').Take(yylloc.StartColumn));
+
+                Console.Error.WriteLine(SourceLine(yylloc.StartLine - 1));
+                Console.Error.WriteLine(whitespace + new string('^', yylloc.EndColumn - yylloc.StartColumn));
+            }
+
+            Console.Error.WriteLine($"Line {yylloc.StartLine}: {message}\n");
+        }
+
+        private void InvalidToken(string token)
+        {
+            Errors++;
+            Console.Error.WriteLine($"Line {yylloc.StartLine}: Invalid token {token}");
+        }
+    }
+}
+
 namespace mini_lang
 {
     #region Extensions
@@ -130,7 +170,8 @@ namespace mini_lang
     /// </summary>
     public interface IAssignable : IEvaluable
     {
-        void Assign(IAssignableVisitor visitor, CodeGenerator value);
+        void PreStore(IAssignableVisitor visitor);
+        void PostStore(IAssignableVisitor visitor);
     }
 
     #endregion
@@ -177,9 +218,8 @@ namespace mini_lang
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitVariable(this);
-
-        void IAssignable.Assign(IAssignableVisitor visitor, CodeGenerator value) =>
-            visitor.StoreInVariable(this, value);
+        void IAssignable.PreStore(IAssignableVisitor visitor) => visitor.PreStoreInVariable(this);
+        void IAssignable.PostStore(IAssignableVisitor visitor) => visitor.PostStoreInVariable(this);
     }
 
     public class Indexing : IAssignable
@@ -210,7 +250,8 @@ namespace mini_lang
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitIndexing(this);
-        void IAssignable.Assign(IAssignableVisitor visitor, CodeGenerator value) => visitor.StoreInArray(this, value);
+        void IAssignable.PreStore(IAssignableVisitor visitor) => visitor.PreStoreInArray(this);
+        void IAssignable.PostStore(IAssignableVisitor visitor) => visitor.PostStoreInArray(this);
     }
 
     #region Operators
@@ -578,12 +619,13 @@ namespace mini_lang
         void VisitUnaryOp(UnaryOp unaryOp);
     }
 
-    public delegate void CodeGenerator();
-
     public interface IAssignableVisitor
     {
-        void StoreInVariable(Variable variable, CodeGenerator value);
-        void StoreInArray(Indexing indexing, CodeGenerator value);
+        void PreStoreInVariable(Variable variable);
+        void PostStoreInVariable(Variable variable);
+
+        void PreStoreInArray(Indexing indexing);
+        void PostStoreInArray(Indexing indexing);
     }
 
     public class CodeBuilder : INodeVisitor, IAssignableVisitor
@@ -621,19 +663,18 @@ namespace mini_lang
 
         // IAssignableVisitor methods
 
-        public void StoreInVariable(Variable variable, CodeGenerator value)
-        {
-            value();
-            EmitLine($"stloc {variable.Identifier.Name}");
-        }
+        public void PreStoreInVariable(Variable variable) { }
 
-        public void StoreInArray(Indexing indexing, CodeGenerator value)
+        public void PostStoreInVariable(Variable variable) => EmitLine($"stloc {variable.Identifier.Name}");
+
+        public void PreStoreInArray(Indexing indexing)
         {
             EmitLine($"ldloc {indexing.Identifier.Name}"); // TODO: same as in VisitVariable
             indexing.Indices.ForEach(ix => ix.Accept(this));
+        }
 
-            value();
-
+        public void PostStoreInArray(Indexing indexing)
+        {
             int dim = indexing.Indices.Count;
 
             if (dim == 1)
@@ -722,15 +763,16 @@ namespace mini_lang
 
         public void VisitAssignment(Assignment assignment)
         {
-            void Action()
-            {
-                assignment.Rhs.Accept(this);
-                if (assignment.EvalType != assignment.Rhs.EvalType)
-                    EmitConversion(assignment.EvalType);
-            }
+            assignment.Lhs.PreStore(this);
 
-            Action(); // because assignment leaves a value on the stack
-            assignment.Lhs.Assign(this, Action);
+            assignment.Rhs.Accept(this);
+            if (assignment.EvalType != assignment.Rhs.EvalType)
+                EmitConversion(assignment.EvalType);
+
+            assignment.Lhs.PostStore(this);
+
+            // Create a read so that we leave a value on the stack
+            assignment.Lhs.Accept(this);
         }
 
         public void VisitIndexing(Indexing indexing)
@@ -808,13 +850,12 @@ namespace mini_lang
 
         public void VisitRead(Read read)
         {
-            void Action()
-            {
-                EmitLine("call string class [mscorlib]System.Console::ReadLine()");
-                EmitLine($"call {_longTypes[read.Target.EvalType]} {_longTypes[read.Target.EvalType]}::Parse(string)");
-            }
+            read.Target.PreStore(this);
 
-            read.Target.Assign(this, Action);
+            EmitLine("call string class [mscorlib]System.Console::ReadLine()");
+            EmitLine($"call {_longTypes[read.Target.EvalType]} {_longTypes[read.Target.EvalType]}::Parse(string)");
+
+            read.Target.PostStore(this);
         }
 
         public void VisitBreak(Break @break) => EmitLine($"br {_loopLabels.ElementAt(@break.Levels - 1).Item2}");
@@ -951,6 +992,7 @@ namespace mini_lang
             EmitLine(".method static void main()");
             EmitLine("{");
             EmitLine(".entrypoint");
+            EmitLine(".maxstack 64"); // arbitrary
             EmitLine(".try");
             EmitLine("{");
         }
@@ -1104,19 +1146,18 @@ namespace mini_lang
             var parser  = new Parser(scanner, builder);
 
             var errors        = 0;
-            var lastErrorLine = -1;
+            int lastErrorLine = -1;
 
             Error = (message, interrupt) =>
             {
-                // Hack (or is it?): make use of line tracking in the scanner
-                int currentLine = scanner.lineNumber;
+                int currentLine = scanner.yylloc.StartLine;
 
                 if (currentLine == lastErrorLine)
                     return;
 
                 lastErrorLine = currentLine;
 
-                string errorMessage = $"{message} on line {currentLine}";
+                string errorMessage = $"Line {currentLine}: {message}";
                 Console.Error.WriteLine(errorMessage);
 
                 // This is safe since we're modifying a static closure using a thread-static delegate
@@ -1135,7 +1176,7 @@ namespace mini_lang
             catch (AstException e)
             {
                 Console.Error.WriteLine(e.Message);
-                Console.Error.WriteLine($"{errors} errors found"); // TODO: Same thing as in Main because of early exit
+                Console.Error.WriteLine($"{errors} error{(errors == 1 ? "" : "s")} found"); // TODO: Same thing as in Main because of early exit
                 Environment.Exit(1);
             }
 
@@ -1164,7 +1205,7 @@ namespace mini_lang
 
             if (errors > 0)
             {
-                Console.Error.WriteLine($"{errors} errors found");
+                Console.Error.WriteLine($"{errors} error{(errors == 1 ? "" : "s")} found");
                 return 1;
             }
 

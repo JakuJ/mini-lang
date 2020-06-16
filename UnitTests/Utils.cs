@@ -12,12 +12,12 @@ namespace UnitTests
             {
                 StartInfo = new ProcessStartInfo
                 {
-                    FileName = program,
-                    Arguments = args,
-                    UseShellExecute = false,
+                    FileName               = program,
+                    Arguments              = args,
+                    UseShellExecute        = false,
                     RedirectStandardOutput = true,
-                    RedirectStandardError = true,
-                    CreateNoWindow = true
+                    RedirectStandardError  = true,
+                    CreateNoWindow         = true
                 }
             };
 

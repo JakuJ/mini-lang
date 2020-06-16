@@ -9,6 +9,9 @@ program {
     // Weird stuff 1726345jkadhbf&*@^#%&Q(^$#\r\n;;';;
     
     int x; // Comment after statement
+    
+    x = // comment in statement
+    5;
 }
 
 // Comment after program

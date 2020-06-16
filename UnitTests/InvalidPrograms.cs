@@ -22,7 +22,7 @@ namespace UnitTests
             var errs = 0;
             Assert.DoesNotThrow(() => { errs = CompilationErrors(path); }, "AST construction should not throw");
             Assert.GreaterOrEqual(errs, atLeast, $"Expected to find at least {atLeast} errors");
-            Console.Error.WriteLine($"Passed, {errs} errors found");
+            Console.Error.WriteLine($"Passed, {errs} error{(errs == 1 ? "" : "s")} found");
         }
     }
 

@@ -1,0 +1,5 @@
+program {
+    write "\\";
+    write "\"";
+    write "\n";
+}
