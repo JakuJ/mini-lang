@@ -13,21 +13,19 @@ namespace GardensPoint
 
         private string SourceLine(int line)
         {
+            // Read the file once and only if there's an error to show
             if (_sourceLines == null)
             {
                 FileStream stream = new FileStream(Buffer.FileName, FileMode.Open, FileAccess.Read, FileShare.Read);
                 List<string> lines = new List<string>();
 
                 using (StreamReader reader = new StreamReader(stream))
-                {
                     while (!reader.EndOfStream)
-                    {
                         lines.Add(reader.ReadLine());
-                    }
-                }
 
                 _sourceLines = lines.ToArray();
             }
+
             return _sourceLines[line];
         }
 
@@ -49,10 +47,17 @@ namespace GardensPoint
             Console.Error.WriteLine($"Line {yylloc.StartLine}: {message}\n");
         }
 
+        private int _lastInvalidToken = -1;
+
         private void InvalidToken(string token)
         {
+            // One error of this type per line
+            if (_lastInvalidToken == yylloc.StartColumn)
+                return;
+
             Errors++;
             Console.Error.WriteLine($"Line {yylloc.StartLine}: Invalid token {token}");
+            _lastInvalidToken = yylloc.StartColumn;
         }
     }
 }
@@ -155,7 +160,7 @@ namespace mini_lang
             Dimensions = dimensions;
 
             if (dimensions > 32)
-                Compiler.Error("Cannot declare array of more than 32 dimensions");
+                Compiler.Error("You cannot declare an array with more than 32 dimensions");
         }
     }
 
@@ -681,7 +686,7 @@ namespace mini_lang
 
         public void PreStoreInArray(Indexing indexing)
         {
-            EmitLine($"ldloc {indexing.Identifier.Name}"); // TODO: same as in VisitVariable
+            EmitLine($"ldloc {indexing.Identifier.Name}");
             indexing.Indices.ForEach(ix => ix.Accept(this));
         }
 
@@ -789,7 +794,7 @@ namespace mini_lang
 
         public void VisitIndexing(Indexing indexing)
         {
-            EmitLine($"ldloc {indexing.Identifier.Name}"); // TODO: same as in VisitVariable
+            EmitLine($"ldloc {indexing.Identifier.Name}");
             indexing.Indices.ForEach(x => x.Accept(this));
 
             int dim = indexing.Indices.Count;
@@ -1120,14 +1125,14 @@ namespace mini_lang
     /// <summary>
     /// An exception thrown when the AST builder can no longer proceed. 
     /// </summary>
-    public class AstException : Exception // TODO: maybe unused
+    public class AstException : Exception
     {
         /// <inheritdoc cref="AstException"/>
         public AstException(string message) : base(message) { }
     }
 
     /// <summary>
-    /// Main <see cref="Compiler"/> class.
+    /// Compiler <see cref="mini_lang.Main"/> class.
     /// Defines the <see cref="Compile"/> method, which encapsulates the compiler's logic.
     /// </summary>
     public static class Compiler
@@ -1142,7 +1147,7 @@ namespace mini_lang
 
         /// <inheritdoc cref="ErrorLogger"/>
         /// <remarks>
-        /// This should only be assigned once, in the <see cref="Compile"/> method of the <see cref="Compiler"/> class.
+        /// This should only be assigned once, in the <see cref="Compile"/> method of the <see cref="mini_lang.Main"/> class.
         /// Using a thread-static field prevents parallel tests from overwriting each other's delegate,
         /// and by doing so, messing with the error count for a given test.
         /// </remarks>
@@ -1177,7 +1182,7 @@ namespace mini_lang
                 // ReSharper disable once AccessToModifiedClosure
                 errors++;
 
-                if (interrupt) // TODO: Maybe unused
+                if (interrupt)
                     throw new AstException(errorMessage);
             };
 
@@ -1188,7 +1193,7 @@ namespace mini_lang
             catch (AstException e)
             {
                 Console.Error.WriteLine(e.Message);
-                Console.Error.WriteLine($"{errors} error{(errors == 1 ? "" : "s")} found"); // TODO: Same thing as in Main because of early exit
+                Console.Error.WriteLine($"{errors} error{(errors == 1 ? "" : "s")} found");
                 Environment.Exit(1);
             }
 
@@ -1209,8 +1214,8 @@ namespace mini_lang
             }
             else
             {
-                Console.Write("Source file: ");
-                file = Console.ReadLine();
+                Console.WriteLine("No source file specified");
+                return 1;
             }
 
             (Program program, int errors) = Compile(file);

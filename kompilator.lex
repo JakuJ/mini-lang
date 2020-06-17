@@ -13,6 +13,7 @@ BitAnd      "&"{1}
 LogicAnd    "&"{2}
 BitOr       "|"{1}
 LogicOr     "|"{2}
+Whitespace	[ \t\n\r]
 
 %%
 
@@ -63,12 +64,9 @@ LogicOr     "|"{2}
 {String}        { yylval.str = yytext; return (int)Tokens.String; }
 <<EOF>>         { return (int)Tokens.EOF; }
 {Comment}       { }
-" "             { }
-"\t"            { }
-"\n"            { }
-"\r"            { }
+{Whitespace}	{ }
 .               { InvalidToken(yytext); }
 
 %{
-    yylloc = new LexLocation(tokLin,tokCol,tokELin,tokECol);
+    yylloc = new LexLocation(tokLin, tokCol, tokELin, tokECol);
 %}
