@@ -6,7 +6,6 @@ using NUnit.Framework;
 namespace UnitTests
 {
     [TestFixture]
-    [Parallelizable]
     public class OutputPrograms
     {
         private static (Program, int) RunCompiler(string file)

@@ -7,7 +7,6 @@ using NUnit.Framework;
 namespace UnitTests
 {
     [TestFixture]
-    [Parallelizable]
     public class InvalidPrograms
     {
         private static int CompilationErrors(string file)

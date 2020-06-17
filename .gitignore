@@ -12,3 +12,4 @@ Parser.cs
 *.DotSettings.user
 dis.sh
 /Test/
+/.vs

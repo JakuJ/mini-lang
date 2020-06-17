@@ -6,7 +6,7 @@ namespace UnitTests
 {
     public static class Utils
     {
-        private static string RunExternal(string program, string args)
+        private static string RunExternal(string program, string args = "")
         {
             var process = new Process
             {
@@ -31,10 +31,10 @@ namespace UnitTests
             return output.GetAwaiter().GetResult();
         }
 
-        public static void Link(string ilPath) => RunExternal("ilasm", ilPath);
+        public static void Link(string ilPath) => RunExternal("ilasm.exe", ilPath);
 
-        public static void Verify(string exePath) => RunExternal("peverify", $"--verify all {exePath}");
+        public static void Verify(string exePath) => RunExternal("peverify.exe", $"{exePath}");
 
-        public static string Execute(string exePath) => RunExternal("mono", exePath);
+        public static string Execute(string exePath) => RunExternal(exePath);
     }
 }

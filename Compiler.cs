@@ -14,8 +14,20 @@ namespace GardensPoint
         private string SourceLine(int line)
         {
             if (_sourceLines == null)
-                _sourceLines = File.ReadAllLines(Buffer.FileName);
+            {
+                FileStream stream = new FileStream(Buffer.FileName, FileMode.Open, FileAccess.Read, FileShare.Read);
+                List<string> lines = new List<string>();
 
+                using (StreamReader reader = new StreamReader(stream))
+                {
+                    while (!reader.EndOfStream)
+                    {
+                        lines.Add(reader.ReadLine());
+                    }
+                }
+
+                _sourceLines = lines.ToArray();
+            }
             return _sourceLines[line];
         }
 
@@ -1139,7 +1151,7 @@ namespace mini_lang
 
         public static (Program, int) Compile(string file)
         {
-            var source = new FileStream(file, FileMode.Open);
+            var source = new FileStream(file, FileMode.Open, FileAccess.Read, FileShare.Read);
 
             var builder = new AstBuilder();
             var scanner = new Scanner(source);

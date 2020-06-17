@@ -1,5 +1,4 @@
 %using QUT.Gppg;
-%using System.Linq;
 %using mini_lang;
 %namespace GardensPoint
 %option codePage:65001 out:Scanner.cs
@@ -67,6 +66,7 @@ LogicOr     "|"{2}
 " "             { }
 "\t"            { }
 "\n"            { }
+"\r"            { }
 .               { InvalidToken(yytext); }
 
 %{
