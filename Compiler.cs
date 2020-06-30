@@ -1059,13 +1059,15 @@ namespace mini_lang
 
         public Declaration CreateDeclaration(string name, AbstractType type)
         {
+            string uniqueName = UniqueId(name);
+
             if (CurrentScope.TryGetValue(name, out VariableInfo info))
             {
                 if (info.CanBeShadowed) // Shadow an existing variable
                 {
                     // Actually declare another one
-                    string uniqueName    = UniqueId(name);
-                    var    newIdentifier = new Identifier(uniqueName, type);
+
+                    var newIdentifier = new Identifier(uniqueName, type);
 
                     CurrentScope[name] = new VariableInfo(newIdentifier, false);
                     return new Declaration(newIdentifier, false);
@@ -1076,7 +1078,7 @@ namespace mini_lang
             }
 
             // Declare a new variable
-            var ident = new Identifier(name, type);
+            var ident = new Identifier(uniqueName, type);
             CurrentScope[name] = new VariableInfo(ident, false);
             return new Declaration(ident, _scopeStack.Count == 1);
         }

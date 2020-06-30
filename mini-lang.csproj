@@ -49,8 +49,9 @@
     </ItemGroup>
     <ItemGroup>
       <Content Include="scanner.lex" />
+      <Content Include="Test\hello_mini_dis.il"/>
       <None Include="Test\dis.sh" />
-      <Content Include="Test\hello.mini"/>
+        <Content Include="Test\hello.mini"/>
       <Content Include="Test\hello.mini.il" />
       <None Include="Test\Test.il" />
       <Resource Include="parser.y" />
