@@ -2,4 +2,5 @@ program {
     write "\\";
     write "\"";
     write "\n";
+    write "?";
 }

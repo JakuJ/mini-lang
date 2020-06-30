@@ -570,7 +570,7 @@ namespace mini_lang
             Body      = body;
 
             if (condition.EvalType != PrimType.Bool)
-                Compiler.Error($"While loop condition evaluates to {condition.EvalType}, expected {PrimType.Bool}");
+                Compiler.Error($"Loop condition evaluates to {condition.EvalType} and not {PrimType.Bool}");
         }
 
         void INode.Accept(INodeVisitor visitor) => visitor.VisitWhile(this);
@@ -862,7 +862,7 @@ namespace mini_lang
         public void VisitWriteString(WriteString writeString)
         {
             EmitLine($"ldstr {writeString.String}");
-            EmitLine($"call void [mscorlib]System.Console::Write(string)");
+            EmitLine("call void [mscorlib]System.Console::Write(string)");
         }
 
         public void VisitRead(Read read)
@@ -870,7 +870,17 @@ namespace mini_lang
             read.Target.PreStore(this);
 
             EmitLine("call string class [mscorlib]System.Console::ReadLine()");
-            EmitLine($"call {_longTypes[read.Target.EvalType]} {_longTypes[read.Target.EvalType]}::Parse(string)");
+
+            if (read.Target.EvalType == PrimType.Double)
+            {
+                EmitLine(
+                    "call class [mscorlib]System.Globalization.CultureInfo class [mscorlib]System.Globalization.CultureInfo::get_InvariantCulture()");
+                EmitLine("call float64 float64::Parse(string, class [mscorlib]System.IFormatProvider)");
+            }
+            else
+            {
+                EmitLine($"call {_longTypes[read.Target.EvalType]} {_longTypes[read.Target.EvalType]}::Parse(string)");
+            }
 
             read.Target.PostStore(this);
         }
