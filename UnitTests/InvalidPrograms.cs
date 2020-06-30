@@ -63,7 +63,7 @@ namespace UnitTests
                     ("string.mini", 6),
                     ("unary.mini", 5),
                     ("undeclared.mini", 3),
-                    ("while.mini", 4),
+                    ("while.mini", 3),
                 };
 
                 foreach ((string path, int expected) in cases)

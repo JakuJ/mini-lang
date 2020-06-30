@@ -68,7 +68,7 @@ namespace UnitTests
                     ("multi_assignment.mini", "6 6 6.000000"),
                     ("return.mini", "return"),
                     ("scopes.mini", "0 5 0 2"),
-                    ("strings.mini", "\\\"\n"),
+                    ("strings.mini", "\\\"\n?"),
                     ("unary.mini", "-1 5 False True -2 1 3.560000 8.000000 0.000000 1.000000 5 1 3 1 0"),
                     ("while.mini", "40320 1 2 3 4 5 9 -2 0"),
                 };
